@@ -33,7 +33,15 @@ struct StatCard: View {
 
 struct SleepSessionRow: View {
     let session: SleepSession
+    var now: Date = Date()
     @State private var showEdit = false
+
+    private var displayDuration: String {
+        if session.isActive {
+            return SleepFormatter.formatDuration(now.timeIntervalSince(session.startTime))
+        }
+        return session.formattedDuration
+    }
 
     var body: some View {
         Button {
@@ -42,10 +50,10 @@ struct SleepSessionRow: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(session.type == .nap ? AppTheme.sleepPurple.opacity(0.15) : Color.indigo.opacity(0.15))
+                        .fill(session.type.accentColor.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: session.type.icon)
-                        .foregroundStyle(session.type == .nap ? AppTheme.sleepPurple : .indigo)
+                        .foregroundStyle(session.type.accentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -69,9 +77,19 @@ struct SleepSessionRow: View {
 
                 Spacer()
 
-                Text(session.formattedDuration)
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.sleepPurple)
+                Group {
+                    if session.isActive {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            Text(SleepFormatter.formatDuration(context.date.timeIntervalSince(session.startTime)))
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(session.type.accentColor)
+                        }
+                    } else {
+                        Text(displayDuration)
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(session.type.accentColor)
+                    }
+                }
 
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -91,15 +109,19 @@ struct SleepSessionRow: View {
 }
 
 struct EmptyTimelineCard: View {
+    var mode: TrackingMode = .daytime
+
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "moon.zzz")
+            Image(systemName: mode == .daytime ? "moon.zzz" : "moon.stars")
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
-            Text("No sleep logged yet today")
+            Text("No activity logged yet today")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("Tap the big button above to start tracking")
+            Text(mode == .daytime
+                 ? "Tap the big button to start a nap"
+                 : "Tap the big button when baby wakes up")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

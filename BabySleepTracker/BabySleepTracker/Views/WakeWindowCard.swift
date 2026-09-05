@@ -5,6 +5,7 @@ struct WakeWindowCard: View {
     let guidance: WakeWindowCalculator.Guidance
     let ageInMonths: Int
     let lastWakeTime: Date?
+    var now: Date = Date()
 
     private var accentColor: Color {
         switch readiness {
@@ -18,7 +19,7 @@ struct WakeWindowCard: View {
 
     private var progress: Double {
         guard let lastWake = lastWakeTime else { return 0 }
-        let minutesAwake = Int(Date().timeIntervalSince(lastWake) / 60)
+        let minutesAwake = Int(now.timeIntervalSince(lastWake) / 60)
         return WakeWindowCalculator.progressTowardNap(minutesAwake: minutesAwake, ageInMonths: ageInMonths)
     }
 

@@ -1,14 +1,58 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 enum SleepType: String, Codable, CaseIterable {
     case nap = "Nap"
     case night = "Night"
+    case awake = "Awake"
 
     var icon: String {
         switch self {
         case .nap: return "sun.max.fill"
         case .night: return "moon.stars.fill"
+        case .awake: return "eyes"
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .nap: return AppTheme.sleepPurple
+        case .night: return .indigo
+        case .awake: return AppTheme.wakeCoral
+        }
+    }
+}
+
+enum TrackingMode: String, CaseIterable {
+    case daytime
+    case nighttime
+
+    var title: String {
+        switch self {
+        case .daytime: return "Daytime"
+        case .nighttime: return "Nighttime"
+        }
+    }
+
+    var primarySessionType: SleepType {
+        switch self {
+        case .daytime: return .nap
+        case .nighttime: return .awake
+        }
+    }
+
+    var toggleIcon: String {
+        switch self {
+        case .daytime: return "moon.stars.fill"
+        case .nighttime: return "sun.max.fill"
+        }
+    }
+
+    var toggleLabel: String {
+        switch self {
+        case .daytime: return "Night"
+        case .nighttime: return "Day"
         }
     }
 }
