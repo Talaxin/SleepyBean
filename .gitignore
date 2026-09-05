@@ -17,3 +17,9 @@ Pods/
 
 # Agent temp files
 agent-tools/
+
+# Archives
+*.tar.gz
+
+# IPA build output
+BabySleepTracker/build/

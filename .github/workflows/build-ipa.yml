@@ -1,0 +1,51 @@
+name: Build SleepyBean IPA
+
+on:
+  push:
+    branches: [main, master, "cursor/**"]
+    paths:
+      - "BabySleepTracker/**"
+      - ".github/workflows/build-ipa.yml"
+  pull_request:
+    paths:
+      - "BabySleepTracker/**"
+      - ".github/workflows/build-ipa.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: build-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: BabySleepTracker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned IPA
+        run: bash scripts/build-unsigned-ipa.sh
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SleepyBean-ipa
+          path: BabySleepTracker/build/SleepyBean.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "### SleepyBean IPA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh build/SleepyBean.ipa >> "$GITHUB_STEP_SUMMARY"
+          shasum -a 256 build/SleepyBean.ipa >> "$GITHUB_STEP_SUMMARY"
