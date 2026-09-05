@@ -52,6 +52,12 @@ echo "==> Built app metadata:"
 echo "==> Packaging IPA from: $APP_PATH"
 mkdir -p "$OUTPUT_DIR/Payload"
 ditto "$APP_PATH" "$OUTPUT_DIR/Payload/BabySleepTracker.app"
+
+# Sideload builds ship without extensions for reliable Feather installs.
+if [[ -d "$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns" ]]; then
+  echo "==> Removing embedded extensions for sideload distribution"
+  rm -rf "$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns"
+fi
 (
   cd "$OUTPUT_DIR"
   rm -f "$IPA_PATH"

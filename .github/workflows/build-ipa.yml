@@ -56,8 +56,9 @@ jobs:
       - name: Verify IPA metadata
         id: ipa
         run: |
-          chmod +x scripts/read-ipa-metadata.sh
+          chmod +x scripts/read-ipa-metadata.sh scripts/validate-ipa.sh
           eval "$(scripts/read-ipa-metadata.sh BabySleepTracker/build/SleepyBean.ipa)"
+          scripts/validate-ipa.sh BabySleepTracker/build/SleepyBean.ipa
           echo "Verified IPA version ${full_version}, bundle ${bundle_id}, has_icon=${has_icon}"
           if [[ "$marketing_version" != "${{ steps.version.outputs.full }}" ]]; then
             echo "ERROR: IPA short version mismatch (got $marketing_version, expected ${{ steps.version.outputs.full }})" >&2

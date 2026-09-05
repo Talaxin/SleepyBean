@@ -1,6 +1,7 @@
 {
   "name": "SleepyBean",
   "identifier": "com.sleepybean.repo",
+  "sourceURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/app-repo.json",
   "iconURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/icon.png",
   "website": "https://github.com/Talaxin/SleepyBean",
   "apps": [
@@ -9,18 +10,25 @@
       "bundleIdentifier": "com.sleepybean.tracker",
       "developerName": "Talaxin",
       "iconURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/icon.png",
-      "localizedDescription": "Track naps, night wakings, and feeds. Live Activities on the lock screen, day/night modes, wake windows, and one-tap left/right/bottle feeding.",
-      "subtitle": "Sleep, feeds & live timer",
-      "tintColor": "7358C8",
+      "localizedDescription": "Track naps, night wakings, and feeds. Day/night modes, wake windows, and one-tap left/right/bottle feeding.",
+      "subtitle": "Sleep & feeding tracker",
+      "tintColor": "#7358C8",
+      "category": "lifestyle",
       "versions": [
         {
           "version": "1.1.9",
+          "buildVersion": "9",
           "date": "2026-09-05T22:39:54Z",
+          "localizedDescription": "SleepyBean 1.1.9 — feeding, day/night modes, wake windows.",
+          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.1.9/SleepyBean.ipa",
           "size": 2449562,
-          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.1.9/SleepyBean.ipa"
+          "minOSVersion": "17.0"
         }
       ],
-      "appPermissions": {},
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      },
       "version": "1.1.9",
       "versionDate": "2026-09-05T22:39:54Z",
       "size": 2449562,
@@ -29,12 +37,12 @@
   ],
   "news": [
     {
-      "title": "Install via Feather",
-      "identifier": "sleepybean-feather",
-      "caption": "Delete the old SleepyBean app first, refresh this source, then install the latest version. Today screen should show Feeding and build 1.1.9+ at the bottom.",
-      "tintColor": "7358C8",
+      "title": "Fresh install required",
+      "identifier": "sleepybean-reinstall-1-2",
+      "caption": "Delete the old SleepyBean app, refresh this source, then install the latest build. Today should show Feeding and a version stamp at the bottom.",
+      "tintColor": "#7358C8",
       "date": "2026-09-05",
-      "url": "https://github.com/Talaxin/SleepyBean",
+      "url": "https://github.com/Talaxin/SleepyBean/releases/latest",
       "notify": false
     }
   ]

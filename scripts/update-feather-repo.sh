@@ -23,35 +23,49 @@ TAG="v${full_version}"
 DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/SleepyBean.ipa"
 ICON_URL="https://raw.githubusercontent.com/${REPO}/main/feather/icon.png"
+SOURCE_URL="https://raw.githubusercontent.com/${REPO}/main/feather/app-repo.json"
 
 echo "Updating Feather manifest from IPA metadata:"
 echo "  version: $full_version"
+echo "  build: $build_number"
 echo "  bundle: $bundle_id"
 echo "  size: $size"
 echo "  url: $DOWNLOAD_URL"
 
-python3 - "$MANIFEST" "$full_version" "$DATE" "$size" "$DOWNLOAD_URL" "$ICON_URL" "$bundle_id" <<'PY'
+python3 - "$MANIFEST" "$full_version" "$build_number" "$DATE" "$size" "$DOWNLOAD_URL" "$ICON_URL" "$bundle_id" "$SOURCE_URL" <<'PY'
 import json
 import sys
 
-path, version, date, size, url, icon_url, bundle_id = sys.argv[1:8]
+path, version, build, date, size, url, icon_url, bundle_id, source_url = sys.argv[1:10]
 with open(path, encoding="utf-8") as f:
     data = json.load(f)
 
+data["sourceURL"] = source_url
+data["iconURL"] = icon_url
+
 app = data["apps"][0]
 app["bundleIdentifier"] = bundle_id
+app["iconURL"] = icon_url
 app["version"] = version
 app["versionDate"] = date
 app["size"] = int(size)
 app["downloadURL"] = url
-app["iconURL"] = icon_url
-app["versions"][0].update({
+app["appPermissions"] = {"entitlements": [], "privacy": {}}
+
+new_entry = {
     "version": version,
+    "buildVersion": build,
     "date": date,
-    "size": int(size),
+    "localizedDescription": f"SleepyBean {version} — feeding, day/night modes, wake windows.",
     "downloadURL": url,
-})
-data["iconURL"] = icon_url
+    "size": int(size),
+    "minOSVersion": "17.0",
+}
+
+versions = app.get("versions", [])
+versions = [entry for entry in versions if entry.get("version") != version]
+versions.insert(0, new_entry)
+app["versions"] = versions[:5]
 
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
