@@ -90,6 +90,7 @@ struct HomeView: View {
                     feedingSection
                     todayStatsRow
                     timelineSection
+                    buildFooter
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 32)
@@ -179,6 +180,16 @@ struct HomeView: View {
         FeedingCard(baby: baby, now: liveNow) { side in
             logFeed(side)
         }
+    }
+
+    private var buildFooter: some View {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        return Text("SleepyBean \(version) (\(build))")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
     }
 
     private var todayStatsRow: some View {
