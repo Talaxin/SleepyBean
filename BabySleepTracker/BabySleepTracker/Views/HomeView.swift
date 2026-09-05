@@ -87,6 +87,7 @@ struct HomeView: View {
                         wakeWindowCard
                     }
                     trackingTimerSection
+                    feedingSection
                     todayStatsRow
                     timelineSection
                 }
@@ -124,6 +125,11 @@ struct HomeView: View {
             }
             .onReceive(timer) { date in
                 liveNow = date
+            }
+            .onAppear {
+                if let active = activeSession {
+                    TrackingLiveActivityManager.restoreIfNeeded(for: active, babyName: baby.name)
+                }
             }
         }
     }
@@ -167,6 +173,12 @@ struct HomeView: View {
             onMainTap: handleMainButtonTap,
             onModeToggle: toggleTrackingMode
         )
+    }
+
+    private var feedingSection: some View {
+        FeedingCard(baby: baby, now: liveNow) { side in
+            logFeed(side)
+        }
     }
 
     private var todayStatsRow: some View {
@@ -230,10 +242,18 @@ struct HomeView: View {
         let session = SleepSession(startTime: Date(), sleepType: type)
         session.baby = baby
         modelContext.insert(session)
+        TrackingLiveActivityManager.start(babyName: baby.name, sessionType: type, startTime: session.startTime)
     }
 
     private func endSession(_ session: SleepSession) {
         session.endTime = Date()
+        TrackingLiveActivityManager.end()
+    }
+
+    private func logFeed(_ side: FeedSide) {
+        let entry = FeedEntry(side: side)
+        entry.baby = baby
+        modelContext.insert(entry)
     }
 
     private func deleteSession(_ session: SleepSession) {
@@ -345,7 +365,7 @@ struct ModeBadge: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: BabyProfile.self, SleepSession.self, configurations: config)
+    let container = try! ModelContainer(for: BabyProfile.self, SleepSession.self, FeedEntry.self, configurations: config)
     let baby = BabyProfile(name: "Luna", birthDate: Calendar.current.date(byAdding: .month, value: -4, to: Date())!)
     container.mainContext.insert(baby)
     return HomeView(baby: baby)

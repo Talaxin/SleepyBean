@@ -19,7 +19,7 @@ struct OnboardingView: View {
                     Text("SleepyBean")
                         .font(.largeTitle.bold())
 
-                    Text("Track naps and night sleep\nwith one tap — just like the pros.")
+                    Text("Track naps, night wakings, and feeds\nwith one tap.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

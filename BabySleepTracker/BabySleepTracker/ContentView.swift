@@ -56,5 +56,5 @@ struct MainTabView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [BabyProfile.self, SleepSession.self], inMemory: true)
+        .modelContainer(for: [BabyProfile.self, SleepSession.self, FeedEntry.self], inMemory: true)
 }

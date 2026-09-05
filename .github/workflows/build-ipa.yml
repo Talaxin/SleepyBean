@@ -5,6 +5,8 @@ on:
     branches: [main, master]
     paths:
       - "BabySleepTracker/**"
+      - "Shared/**"
+      - "SleepyBeanWidgets/**"
       - "feather/**"
       - "scripts/**"
       - ".github/workflows/build-ipa.yml"

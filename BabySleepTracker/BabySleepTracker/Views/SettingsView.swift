@@ -32,7 +32,7 @@ struct SettingsView: View {
                     LabeledContent("Current window", value: guidance.rangeDescription)
                     LabeledContent("Age bracket", value: guidance.label)
 
-                    Text("Based on typical pediatric wake windows. Apps like Huckleberry refine this with your baby's patterns over time.")
+                    Text("Wake windows use age-appropriate ranges to help you spot nap timing.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -64,7 +64,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Inspired by Nara Baby's one-tap simplicity and Huckleberry's wake window guidance. All data stays on your device.")
+                    Text("All data stays on your device. No accounts, no cloud sync.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

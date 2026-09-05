@@ -9,7 +9,7 @@
       "bundleIdentifier": "com.sleepybean.tracker",
       "developerName": "Talaxin",
       "iconURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/icon.png",
-      "localizedDescription": "Track baby naps and night wakings with one tap. Live timers, wake windows, and day/night modes.",
+      "localizedDescription": "Track baby naps, night wakings, and feeds. Live Activities on the lock screen, wake windows, and day/night modes.",
       "subtitle": "Baby sleep tracker",
       "tintColor": "7358C8",
       "versions": [

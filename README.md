@@ -1,6 +1,6 @@
 # SleepyBean
 
-Native iOS baby sleep tracker (SwiftUI + SwiftData). Track naps and night sleep with one tap.
+Native iOS baby tracker for sleep and feeding.
 
 ## Download the IPA
 
@@ -10,7 +10,7 @@ Native iOS baby sleep tracker (SwiftUI + SwiftData). Track naps and night sleep 
 
 ## Install with Feather
 
-Feather supports AltStore-style source repos. Add this URL in Feather → **Sources** → **Add Source**:
+Feather uses a source manifest. Add this URL in Feather → **Sources** → **Add Source**:
 
 ```
 https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/app-repo.json

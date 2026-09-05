@@ -1,20 +1,16 @@
-# SleepyBean — Baby Sleep Tracker
+# SleepyBean
 
-A native iOS app for tracking baby naps and night sleep, inspired by the UX patterns of **Nara Baby** and **Huckleberry**.
+Native iOS baby tracker for sleep and feeding. Built with SwiftUI and SwiftData.
 
-## What top apps do (and what we built)
+## Features
 
-| Feature | Nara Baby | Huckleberry | SleepyBean |
-|---------|-----------|-------------|------------|
-| One-tap start/stop sleep timer | ✅ | ✅ | ✅ |
-| Live elapsed timer while sleeping | ✅ | ✅ | ✅ |
-| Today's activity timeline | ✅ | ✅ | ✅ |
-| Daily sleep totals | ✅ | ✅ | ✅ |
-| Manual add/edit past entries | ✅ | ✅ | ✅ |
-| Wake window / nap readiness | Basic | SweetSpot® (paid) | ✅ (free, age-based) |
-| 7-day sleep chart | ✅ | ✅ (paid reports) | ✅ |
-| Multiple baby profiles | ✅ | ✅ | ✅ |
-| Account / cloud sync | ✅ | ✅ | Local only (privacy-first) |
+- One-tap nap and awake timers with live lock screen updates
+- Daytime and nighttime tracking modes
+- Wake window guidance by age
+- Feeding log with last side (left, right, or bottle)
+- Today's timeline, daily stats, and 7-day history
+- Multiple baby profiles
+- On-device storage — no account required
 
 ## Install with Feather
 
@@ -29,7 +25,7 @@ Pushes to `main` publish a new release IPA and update the manifest automatically
 ## Requirements
 
 - Xcode 16+
-- iOS 17+ (SwiftData)
+- iOS 17+
 - iPhone or iPad
 
 ## Getting Started
@@ -38,45 +34,17 @@ Pushes to `main` publish a new release IPA and update the manifest automatically
 2. Select your development team in Signing & Capabilities
 3. Build and run on your device or simulator (⌘R)
 
-## App Structure
-
-```
-BabySleepTracker/
-├── BabySleepTrackerApp.swift    # App entry + SwiftData container
-├── ContentView.swift            # Tab navigation
-├── Models/
-│   ├── BabyProfile.swift        # Baby name, birth date, age
-│   └── SleepSession.swift       # Sleep sessions (nap/night)
-├── Services/
-│   ├── SleepFormatter.swift     # Duration/time formatting
-│   └── WakeWindowCalculator.swift  # Age-based nap readiness
-└── Views/
-    ├── HomeView.swift           # Main timer + today's log
-    ├── SleepTimerButton.swift   # Big start/stop button
-    ├── WakeWindowCard.swift     # Nap readiness indicator
-    ├── HistoryView.swift        # 7-day chart + past days
-    ├── AddSleepView.swift       # Manual entry / edit
-    └── SettingsView.swift       # Baby profile settings
-```
-
 ## How to Use
 
 1. **First launch** — Enter baby's name and birth date
-2. **Start sleep** — Tap the big moon button, choose Nap or Night
-3. **Wake up** — Tap again to stop the timer
-4. **Missed a log?** — Tap + to manually add a past sleep session
-5. **Check patterns** — History tab shows 7-day chart and daily breakdown
-6. **Nap timing** — Wake window card shows when baby may be ready for next nap
-
-## Tech Stack
-
-- **SwiftUI** — Modern declarative UI
-- **SwiftData** — On-device persistence (no account required)
-- **iOS 17+** — Live Activities ready architecture
+2. **Daytime** — Big button tracks naps; small button switches to nighttime mode
+3. **Nighttime** — Big button tracks awake periods
+4. **Feeding** — Tap Left, Right, or Bottle to log a feed
+5. **History** — Review sleep patterns over the past week
 
 ## Privacy
 
-All data is stored locally on your device using SwiftData. No accounts, no cloud, no tracking.
+All data is stored locally on your device. No accounts, no cloud, no tracking.
 
 ## License
 

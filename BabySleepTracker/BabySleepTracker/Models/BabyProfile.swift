@@ -11,6 +11,9 @@ final class BabyProfile {
     @Relationship(deleteRule: .cascade, inverse: \SleepSession.baby)
     var sleepSessions: [SleepSession] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \FeedEntry.baby)
+    var feedEntries: [FeedEntry] = []
+
     init(name: String, birthDate: Date) {
         self.id = UUID()
         self.name = name

@@ -38,4 +38,14 @@ enum SleepFormatter {
         formatter.dateFormat = "EEEE, MMM d"
         return formatter.string(from: date)
     }
+
+    static func formatFeedSummary(_ date: Date, now: Date = Date()) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relative = formatter.localizedString(for: date, relativeTo: now)
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        return "\(relative) · \(timeFormatter.string(from: date))"
+    }
 }

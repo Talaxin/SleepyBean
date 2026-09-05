@@ -1,7 +1,6 @@
 import Foundation
 
-/// Age-based wake window guidance inspired by common pediatric sleep science
-/// used by apps like Huckleberry's SweetSpot (simplified, on-device version).
+/// Age-based wake window guidance from typical pediatric sleep ranges.
 struct WakeWindowCalculator {
     struct Guidance {
         let minMinutes: Int
@@ -47,7 +46,7 @@ struct WakeWindowCalculator {
             case .sleeping: return "Currently sleeping"
             case .justWoke: return "Just woke up"
             case .approaching: return "Nap window approaching"
-            case .ready: return "Sweet spot for a nap"
+            case .ready: return "Good time for a nap"
             case .overtired: return "May be overtired"
             }
         }

@@ -7,6 +7,6 @@ struct BabySleepTrackerApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [BabyProfile.self, SleepSession.self])
+        .modelContainer(for: [BabyProfile.self, SleepSession.self, FeedEntry.self])
     }
 }
