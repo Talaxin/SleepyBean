@@ -1,0 +1,41 @@
+{
+  "name": "SleepyBean",
+  "identifier": "com.sleepybean.repo",
+  "iconURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/icon.png",
+  "website": "https://github.com/Talaxin/SleepyBean",
+  "apps": [
+    {
+      "name": "SleepyBean",
+      "bundleIdentifier": "com.sleepybean.tracker",
+      "developerName": "Talaxin",
+      "iconURL": "https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/icon.png",
+      "localizedDescription": "Track baby naps and night wakings with one tap. Live timers, wake windows, and day/night modes.",
+      "subtitle": "Baby sleep tracker",
+      "tintColor": "7358C8",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-05T00:00:00Z",
+          "size": 0,
+          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/latest/download/SleepyBean.ipa"
+        }
+      ],
+      "appPermissions": {},
+      "version": "1.0.0",
+      "versionDate": "2026-09-05T00:00:00Z",
+      "size": 0,
+      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/latest/download/SleepyBean.ipa"
+    }
+  ],
+  "news": [
+    {
+      "title": "Install via Feather",
+      "identifier": "sleepybean-feather",
+      "caption": "Add this repo in Feather under Sources, then tap SleepyBean to download and sign with your certificate.",
+      "tintColor": "7358C8",
+      "date": "2026-09-05",
+      "url": "https://github.com/Talaxin/SleepyBean",
+      "notify": false
+    }
+  ]
+}

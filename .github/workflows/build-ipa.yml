@@ -2,13 +2,11 @@ name: Build SleepyBean IPA
 
 on:
   push:
-    branches: [main, master, "cursor/**"]
+    branches: [main, master]
     paths:
       - "BabySleepTracker/**"
-      - ".github/workflows/build-ipa.yml"
-  pull_request:
-    paths:
-      - "BabySleepTracker/**"
+      - "feather/**"
+      - "scripts/**"
       - ".github/workflows/build-ipa.yml"
   workflow_dispatch:
 
@@ -16,14 +14,14 @@ concurrency:
   group: build-ipa-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build unsigned IPA
+    name: Build and publish IPA
     runs-on: macos-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: BabySleepTracker
 
     steps:
       - name: Checkout
@@ -33,7 +31,53 @@ jobs:
         run: xcodebuild -version
 
       - name: Build unsigned IPA
+        working-directory: BabySleepTracker
         run: bash scripts/build-unsigned-ipa.sh
+
+      - name: Resolve version
+        id: version
+        run: |
+          MARKETING_VERSION=$(grep -m1 'MARKETING_VERSION = ' BabySleepTracker/BabySleepTracker.xcodeproj/project.pbxproj | sed 's/.*= //;s/;//')
+          FULL_VERSION="${MARKETING_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "marketing=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "full=$FULL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v${FULL_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Update Feather repo manifest
+        env:
+          APP_VERSION: ${{ steps.version.outputs.marketing }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+        run: |
+          chmod +x scripts/update-feather-repo.sh
+          bash scripts/update-feather-repo.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: SleepyBean ${{ steps.version.outputs.full }}
+          body: |
+            Unsigned SleepyBean IPA for Feather / sideloading.
+
+            **Feather source URL:**
+            ```
+            https://raw.githubusercontent.com/${{ github.repository }}/main/feather/app-repo.json
+            ```
+          files: BabySleepTracker/build/SleepyBean.ipa
+          make_latest: true
+          generate_release_notes: true
+
+      - name: Commit updated Feather manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add feather/app-repo.json
+          if git diff --staged --quiet; then
+            echo "No manifest changes to commit"
+            exit 0
+          fi
+          git commit -m "Update Feather repo manifest for ${{ steps.version.outputs.full }}"
+          git push
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -45,7 +89,12 @@ jobs:
 
       - name: Summary
         run: |
-          echo "### SleepyBean IPA" >> "$GITHUB_STEP_SUMMARY"
+          echo "### SleepyBean IPA published" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          ls -lh build/SleepyBean.ipa >> "$GITHUB_STEP_SUMMARY"
-          shasum -a 256 build/SleepyBean.ipa >> "$GITHUB_STEP_SUMMARY"
+          echo "**Release:** ${{ steps.version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Feather source URL:**" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "https://raw.githubusercontent.com/${{ github.repository }}/main/feather/app-repo.json" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh BabySleepTracker/build/SleepyBean.ipa >> "$GITHUB_STEP_SUMMARY"

@@ -16,6 +16,16 @@ A native iOS app for tracking baby naps and night sleep, inspired by the UX patt
 | Multiple baby profiles | ✅ | ✅ | ✅ |
 | Account / cloud sync | ✅ | ✅ | Local only (privacy-first) |
 
+## Install with Feather
+
+Add this source in Feather → **Sources** → **Add Source**:
+
+```
+https://raw.githubusercontent.com/Talaxin/SleepyBean/main/feather/app-repo.json
+```
+
+Pushes to `main` publish a new release IPA and update the manifest automatically.
+
 ## Requirements
 
 - Xcode 16+
