@@ -49,7 +49,7 @@ jobs:
       - name: Build unsigned IPA
         working-directory: BabySleepTracker
         env:
-          MARKETING_VERSION: ${{ steps.version.outputs.marketing }}
+          MARKETING_VERSION: ${{ steps.version.outputs.full }}
           BUILD_NUMBER: ${{ steps.version.outputs.build }}
         run: bash scripts/build-unsigned-ipa.sh
 
@@ -59,8 +59,8 @@ jobs:
           chmod +x scripts/read-ipa-metadata.sh
           eval "$(scripts/read-ipa-metadata.sh BabySleepTracker/build/SleepyBean.ipa)"
           echo "Verified IPA version ${full_version}, bundle ${bundle_id}, has_icon=${has_icon}"
-          if [[ "$full_version" != "${{ steps.version.outputs.full }}" ]]; then
-            echo "ERROR: IPA version mismatch" >&2
+          if [[ "$marketing_version" != "${{ steps.version.outputs.full }}" ]]; then
+            echo "ERROR: IPA short version mismatch (got $marketing_version, expected ${{ steps.version.outputs.full }})" >&2
             exit 1
           fi
 
@@ -77,8 +77,8 @@ jobs:
           body: |
             SleepyBean ${{ steps.version.outputs.full }}
 
-            - App icon embedded in IPA
-            - Version ${{ steps.version.outputs.marketing }} (build ${{ steps.version.outputs.build }})
+            - App icon and version ${{ steps.version.outputs.full }} embedded in IPA
+            - Build ${{ steps.version.outputs.build }}
 
             **Feather source URL:**
             ```

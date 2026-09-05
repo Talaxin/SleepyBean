@@ -10,6 +10,12 @@ struct SettingsView: View {
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
 
+    private var appVersionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -60,7 +66,7 @@ struct SettingsView: View {
 
                 Section("About") {
                     LabeledContent("App", value: "SleepyBean")
-                    LabeledContent("Version", value: "1.0")
+                    LabeledContent("Version", value: appVersionString)
                 }
 
                 Section {

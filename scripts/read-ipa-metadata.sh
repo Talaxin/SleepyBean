@@ -22,7 +22,7 @@ MARKETING_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionStri
 BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Info.plist")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
 DISPLAY_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_PATH/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Info.plist")"
-FULL_VERSION="${MARKETING_VERSION}.${BUILD_NUMBER}"
+FULL_VERSION="$MARKETING_VERSION"
 SIZE="$(wc -c < "$IPA_PATH" | tr -d ' ')"
 
 HAS_ICON="no"
