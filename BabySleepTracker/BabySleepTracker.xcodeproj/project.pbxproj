@@ -29,6 +29,8 @@
 		A10000010000000000000014 /* FeedingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* FeedingCard.swift */; };
 		A10000010000000000000019 /* SleepyBeanBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* SleepyBeanBackup.swift */; };
 		A1000001000000000000001A /* iCloudBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* iCloudBackupService.swift */; };
+		A1000001000000000000001B /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001B /* AppPreferences.swift */; };
+		A1000001000000000000001C /* SystemSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001C /* SystemSettings.swift */; };
 		A10000010000000000000015 /* TrackingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* TrackingActivityAttributes.swift */; };
 		A10000010000000000000016 /* SleepyBeanWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */; };
 		A10000010000000000000017 /* TrackingLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* TrackingLiveActivityWidget.swift */; };
@@ -62,6 +64,8 @@
 		A20000010000000000000018 /* SleepyBeanBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyBeanBackup.swift; sourceTree = "<group>"; };
 		A20000010000000000000019 /* iCloudBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBackupService.swift; sourceTree = "<group>"; };
 		A2000001000000000000001A /* BabySleepTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BabySleepTracker.entitlements; sourceTree = "<group>"; };
+		A2000001000000000000001B /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		A2000001000000000000001C /* SystemSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSettings.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* BabySleepTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BabySleepTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000010000000000000002 /* SleepyBeanWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SleepyBeanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -163,6 +167,8 @@
 				A20000010000000000000012 /* TrackingLiveActivityManager.swift */,
 				A20000010000000000000018 /* SleepyBeanBackup.swift */,
 				A20000010000000000000019 /* iCloudBackupService.swift */,
+				A2000001000000000000001B /* AppPreferences.swift */,
+				A2000001000000000000001C /* SystemSettings.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -318,6 +324,8 @@
 				A10000010000000000000014 /* FeedingCard.swift in Sources */,
 				A10000010000000000000019 /* SleepyBeanBackup.swift in Sources */,
 				A1000001000000000000001A /* iCloudBackupService.swift in Sources */,
+				A1000001000000000000001B /* AppPreferences.swift in Sources */,
+				A1000001000000000000001C /* SystemSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

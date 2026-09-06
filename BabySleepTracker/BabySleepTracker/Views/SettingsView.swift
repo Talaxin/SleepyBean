@@ -6,12 +6,16 @@ struct SettingsView: View {
     let allBabies: [BabyProfile]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("settings.liveActivitiesEnabled") private var liveActivitiesEnabled = true
+    @AppStorage("settings.iCloudBackupEnabled") private var iCloudBackupEnabled = false
     @State private var showAddBaby = false
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
     @State private var showRestoreConfirm = false
     @State private var statusMessage: String?
     @State private var isWorking = false
+    @State private var iCloudSignedIn = iCloudBackupService.shared.isSignedInToiCloud
 
     private let backupService = iCloudBackupService.shared
 
@@ -19,6 +23,10 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         return "\(version) (\(build))"
+    }
+
+    private var systemLiveActivitiesEnabled: Bool {
+        TrackingLiveActivityManager.isSupported
     }
 
     var body: some View {
@@ -70,43 +78,76 @@ struct SettingsView: View {
                 }
 
                 Section("Live Activity") {
-                    LabeledContent("Lock screen timer") {
-                        Text(TrackingLiveActivityManager.isSupported ? "Enabled" : "Disabled in Settings")
-                            .foregroundStyle(TrackingLiveActivityManager.isSupported ? .green : .secondary)
+                    Toggle("Show lock screen timer", isOn: $liveActivitiesEnabled)
+                        .onChange(of: liveActivitiesEnabled) { _, enabled in
+                            handleLiveActivityToggle(enabled)
+                        }
+
+                    LabeledContent("iOS permission") {
+                        Text(systemLiveActivitiesEnabled ? "Allowed" : "Off in iOS Settings")
+                            .foregroundStyle(systemLiveActivitiesEnabled ? .green : .orange)
                     }
 
-                    Text("Start a nap or sleep timer to show the live counter on your lock screen and Dynamic Island.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if liveActivitiesEnabled && !systemLiveActivitiesEnabled {
+                        Text("Turn on Live Activities for SleepyBean in iOS Settings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button("Open iOS Settings") {
+                            SystemSettings.openAppSettings()
+                        }
+                    } else {
+                        Text("Shows a live nap/sleep timer on your lock screen and Dynamic Island.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("iCloud Backup") {
-                    LabeledContent("iCloud") {
-                        Text(backupService.isSignedInToiCloud ? "Connected" : "Not signed in")
-                            .foregroundStyle(backupService.isSignedInToiCloud ? .green : .secondary)
+                    Toggle("Enable iCloud backup", isOn: $iCloudBackupEnabled)
+
+                    LabeledContent("iCloud account") {
+                        Text(iCloudSignedIn ? "Signed in" : "Not signed in")
+                            .foregroundStyle(iCloudSignedIn ? .green : .orange)
                     }
 
-                    if let lastBackupDate = backupService.lastBackupDate {
-                        LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
+                    if iCloudBackupEnabled && !iCloudSignedIn {
+                        Text("Sign in to iCloud and turn on iCloud Drive to back up your data.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button("Sign in to iCloud") {
+                            SystemSettings.openiCloudSettings()
+                        }
+
+                        Button("Open SleepyBean in Settings") {
+                            SystemSettings.openAppSettings()
+                        }
                     }
 
-                    Button {
-                        performBackup()
-                    } label: {
-                        Label("Back Up Now", systemImage: "icloud.and.arrow.up")
-                    }
-                    .disabled(isWorking || !backupService.isSignedInToiCloud)
+                    if iCloudBackupEnabled && iCloudSignedIn {
+                        if let lastBackupDate = backupService.lastBackupDate {
+                            LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
+                        }
 
-                    Button {
-                        showRestoreConfirm = true
-                    } label: {
-                        Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
-                    }
-                    .disabled(isWorking || !backupService.isSignedInToiCloud)
+                        Button {
+                            performBackup()
+                        } label: {
+                            Label("Back Up Now", systemImage: "icloud.and.arrow.up")
+                        }
+                        .disabled(isWorking)
 
-                    Text("Backs up babies, sleep logs, and feeds to your private iCloud Drive. SleepyBean also backs up automatically when you leave the app.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        Button {
+                            showRestoreConfirm = true
+                        } label: {
+                            Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                        }
+                        .disabled(isWorking)
+
+                        Text("SleepyBean also backs up automatically when you leave the app.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("About") {
@@ -115,7 +156,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Data is stored on your device. Use iCloud Backup above to sync between devices signed into the same Apple ID.")
+                    Text("Data stays on your device unless you turn on iCloud backup above.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -124,6 +165,15 @@ struct SettingsView: View {
             .onAppear {
                 editName = baby.name
                 editBirthDate = baby.birthDate
+                refreshiCloudStatus()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    refreshiCloudStatus()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSUbiquityIdentityDidChange)) { _ in
+                refreshiCloudStatus()
             }
             .alert("Restore from iCloud?", isPresented: $showRestoreConfirm) {
                 Button("Restore", role: .destructive) {
@@ -137,6 +187,11 @@ struct SettingsView: View {
                 get: { statusMessage != nil },
                 set: { if !$0 { statusMessage = nil } }
             )) {
+                if statusMessage?.contains("Sign in") == true || statusMessage?.contains("not available") == true {
+                    Button("Open iCloud Settings") {
+                        SystemSettings.openiCloudSettings()
+                    }
+                }
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(statusMessage ?? "")
@@ -150,7 +205,31 @@ struct SettingsView: View {
         }
     }
 
+    private func refreshiCloudStatus() {
+        iCloudSignedIn = backupService.isSignedInToiCloud
+    }
+
+    private func handleLiveActivityToggle(_ enabled: Bool) {
+        Task {
+            if enabled {
+                await TrackingLiveActivityManager.sync(for: baby)
+            } else {
+                await TrackingLiveActivityManager.endAll()
+            }
+        }
+    }
+
     private func performBackup() {
+        guard iCloudBackupEnabled else {
+            statusMessage = "Turn on iCloud backup in Settings first."
+            return
+        }
+
+        guard iCloudSignedIn else {
+            statusMessage = "Sign in to iCloud in Settings, then try again."
+            return
+        }
+
         isWorking = true
         Task {
             do {
@@ -164,6 +243,16 @@ struct SettingsView: View {
     }
 
     private func performRestore() {
+        guard iCloudBackupEnabled else {
+            statusMessage = "Turn on iCloud backup in Settings first."
+            return
+        }
+
+        guard iCloudSignedIn else {
+            statusMessage = "Sign in to iCloud in Settings, then try again."
+            return
+        }
+
         isWorking = true
         Task {
             do {

@@ -9,7 +9,7 @@ enum iCloudBackupError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "iCloud is not available. Sign in to iCloud in Settings and enable iCloud Drive."
+            return "Sign in to iCloud and enable iCloud Drive, then return to SleepyBean and try again."
         case .missingBackup:
             return "No SleepyBean backup was found in iCloud."
         case .invalidBackup:
@@ -84,6 +84,7 @@ final class iCloudBackupService {
     }
 
     func backupIfPossible(context: ModelContext) async {
+        guard AppPreferences.iCloudBackupEnabled else { return }
         do {
             try await backup(context: context)
         } catch {

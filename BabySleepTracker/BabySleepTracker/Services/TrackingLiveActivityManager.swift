@@ -15,6 +15,7 @@ enum TrackingLiveActivityManager {
     static func syncActiveSession(babyName: String, session: SleepSession?) async {
         await endAll()
 
+        guard AppPreferences.liveActivitiesEnabled else { return }
         guard let session, session.isActive else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             print("Live Activities disabled in system settings")
