@@ -50,14 +50,7 @@ app["version"] = version
 app["versionDate"] = date
 app["size"] = int(size)
 app["downloadURL"] = url
-app["appPermissions"] = {
-    "entitlements": [
-        "com.apple.developer.icloud-container-identifiers",
-        "com.apple.developer.icloud-services",
-        "com.apple.developer.ubiquity-container-identifiers"
-    ],
-    "privacy": {}
-}
+app["appPermissions"] = {"entitlements": [], "privacy": {}}
 
 new_entry = {
     "version": version,
