@@ -2,7 +2,7 @@ import CloudKit
 import Foundation
 
 enum CloudKitConfiguration {
-    static let containerIdentifier = "iCloud.com.sleepybean.tracker"
+    static let containerIdentifier = "iCloud.com.sleepybean.loveyourbaby"
 
     /// CloudKit uses the iCloud account, not iCloud Drive. Drive being off
     /// used to make `ubiquityIdentityToken` nil and force local-only storage.

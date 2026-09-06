@@ -46,9 +46,9 @@ struct SettingsView: View {
                         }
 
                     LabeledContent("Age", value: baby.ageDescription)
-
-                    ShareBabyButton(baby: baby)
                 }
+
+                ShareParentsSection(baby: baby)
 
                 Section("iCloud") {
                     Label(iCloudAccount.statusText, systemImage: iCloudAccount.isSignedIn ? "checkmark.icloud.fill" : "icloud.slash")
@@ -63,7 +63,7 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if SleepyBeanModelContainer.isCloudKitEnabled {
-                        Text("Sleep and feeding data syncs automatically. Use Invite Parent above to share this baby.")
+                        Text("Sleep and feeding data syncs automatically across your devices.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -167,7 +167,7 @@ struct SettingsView: View {
                 Section {
                     Text(
                         SleepyBeanModelContainer.isCloudKitEnabled
-                            ? "iCloud sync keeps data up to date on your devices. Invite Parent lets another caregiver edit the same baby."
+                            ? "iCloud keeps a copy on your devices. Invite another parent from Parents above."
                             : "Back up to iCloud to keep a copy you can restore on this phone or another."
                     )
                     .font(.caption)

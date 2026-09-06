@@ -37,7 +37,7 @@ BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Info.pli
 MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP_PATH/Info.plist" 2>/dev/null || echo "unknown")"
 LIVE_ACTIVITIES="$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$APP_PATH/Info.plist" 2>/dev/null || echo "false")"
 
-if [[ "$BUNDLE_ID" != "com.sleepybean.tracker" ]]; then
+if [[ "$BUNDLE_ID" != "com.sleepybean.loveyourbaby" ]]; then
   echo "ERROR: Unexpected bundle id: $BUNDLE_ID" >&2
   exit 1
 fi

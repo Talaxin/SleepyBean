@@ -176,6 +176,9 @@ struct HomeView: View {
                     await TrackingLiveActivityManager.sync(for: baby)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanPartnerDataDidChange)) { _ in
+                liveNow = Date()
+            }
         }
     }
 
@@ -386,7 +389,7 @@ struct HomeView: View {
             if liveActivity {
                 await TrackingLiveActivityManager.sync(for: baby)
             }
-            await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby)
+            await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
         }
     }
 

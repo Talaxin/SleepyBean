@@ -36,7 +36,7 @@ Feather builds are local-only. iCloud sync and partner sharing require building 
 
 1. Open `BabySleepTracker/BabySleepTracker.xcodeproj` in Xcode
 2. Select your development team in **Signing & Capabilities**
-3. Enable **iCloud** capability with **CloudKit** and container `iCloud.com.sleepybean.tracker`
+3. Enable **iCloud** capability with **CloudKit** and container `iCloud.com.sleepybean.loveyourbaby`
 4. Enable **Background Modes** → **Remote notifications** (for CloudKit sync)
 5. Build and run on your device (⌘R)
 

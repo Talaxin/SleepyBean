@@ -11,6 +11,17 @@ struct BabySleepTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    Task { @MainActor in
+                        await CloudKitSharingCoordinator.shared.acceptShare(from: url)
+                    }
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    guard let url = activity.webpageURL else { return }
+                    Task { @MainActor in
+                        await CloudKitSharingCoordinator.shared.acceptShare(from: url)
+                    }
+                }
         }
         .modelContainer(modelContainer)
     }

@@ -2,138 +2,72 @@ import CloudKit
 import SwiftUI
 import UIKit
 
-final class InviteShareDelegate: NSObject, UICloudSharingControllerDelegate {
-    static let shared = InviteShareDelegate()
-
-    var onShareChanged: (() -> Void)?
-
-    func present(share: CKShare, container: CKContainer) {
-        DispatchQueue.main.async {
-            guard let presenter = Self.topViewController() else { return }
-            let controller = UICloudSharingController(share: share, container: container)
-            controller.delegate = self
-            controller.availablePermissions = [.allowReadWrite, .allowPrivate]
-            controller.popoverPresentationController?.sourceView = presenter.view
-            controller.popoverPresentationController?.sourceRect = CGRect(
-                x: presenter.view.bounds.midX,
-                y: presenter.view.bounds.midY,
-                width: 0,
-                height: 0
-            )
-            presenter.present(controller, animated: true)
-        }
-    }
-
-    func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
-        print("Cloud sharing save failed: \(error.localizedDescription)")
-    }
-
-    func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-        if let share = csc.share {
-            CloudKitSharingCoordinator.shared.cacheParticipantNames(from: share)
-        }
-        onShareChanged?()
-    }
-
-    func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
-        UserDefaults.standard.set(false, forKey: CloudKitSharingCoordinator.hasShareKey)
-        UserDefaults.standard.removeObject(forKey: CloudKitSharingCoordinator.sharedWithNameKey)
-        onShareChanged?()
-    }
-
-    func itemTitle(for csc: UICloudSharingController) -> String? {
-        "SleepyBean"
-    }
-
-    func itemType(for csc: UICloudSharingController) -> String? {
-        "com.sleepybean.tracker.baby"
-    }
-
-    private static func topViewController() -> UIViewController? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let window = scenes.first { $0.activationState == .foregroundActive }?.keyWindow
-            ?? scenes.flatMap(\.windows).first { $0.isKeyWindow }
-            ?? scenes.flatMap(\.windows).first
-        var top = window?.rootViewController
-        while let presented = top?.presentedViewController {
-            top = presented
-        }
-        return top
-    }
-}
-
-struct ShareBabyButton: View {
+struct ShareParentsSection: View {
     let baby: BabyProfile
     @Environment(\.modelContext) private var modelContext
 
     @AppStorage("partner.hasShare") private var hasPartnerShare = false
+    @AppStorage("partner.isParticipant") private var isParticipant = false
     @AppStorage("partner.sharedWithName") private var sharedWithName = ""
-    @State private var isPreparing = false
-    @State private var isStopping = false
-    @State private var errorMessage: String?
+    @AppStorage("partner.customName") private var customName = ""
+    @AppStorage("partner.inviteHint") private var inviteHint = ""
+    @AppStorage("partner.inviteAccepted") private var inviteAccepted = false
+    @AppStorage("partner.inviteCode") private var inviteCode = ""
+
+    @State private var inviteURL: URL?
+    @State private var joinCode = ""
+    @State private var isWorking = false
     @State private var showStopConfirm = false
+    @State private var errorMessage: String?
 
     private let sharingCoordinator = CloudKitSharingCoordinator.shared
 
-    private var displaySharedName: String {
-        let trimmed = sharedWithName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "parent" : trimmed
+    private var parentName: String {
+        let custom = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !custom.isEmpty { return custom }
+        let stored = sharedWithName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stored.isEmpty, !CloudKitSharingCoordinator.isContactHandle(stored) {
+            return stored
+        }
+        let hint = inviteHint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !hint.isEmpty { return hint }
+        return stored.isEmpty ? "" : stored
     }
 
-    private var isShared: Bool {
-        hasPartnerShare || sharingCoordinator.isShared(baby, modelContext: modelContext)
+    private var isOwnerWaiting: Bool {
+        hasPartnerShare && !isParticipant && !inviteAccepted
+    }
+
+    private var isConnected: Bool {
+        isParticipant || inviteAccepted
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if isShared {
-                Button {
-                    showStopConfirm = true
-                } label: {
-                    Label("Shared with \(displaySharedName)", systemImage: "person.2.fill")
-                        .foregroundStyle(AppTheme.sleepPurple)
-                }
-                .buttonStyle(.plain)
-                .disabled(isStopping)
-            }
-
-            if !isShared {
-                Button {
-                    prepareShare()
-                } label: {
-                    if isPreparing {
-                        HStack {
-                            ProgressView()
-                            Text("Preparing invite…")
-                        }
-                    } else {
-                        Label("Invite Parent", systemImage: "person.badge.plus")
-                    }
-                }
-                .disabled(isPreparing)
-
-                Text("Sends a Messages or Mail invite. The other parent needs SleepyBean installed and signed in to iCloud.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        Section {
+            if isConnected {
+                connectedRows
+            } else if isOwnerWaiting {
+                waitingRows
             } else {
-                Text("Tap to stop sharing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                setupRows
             }
+        } header: {
+            Text("Parents")
+        } footer: {
+            footerText
         }
         .onAppear {
-            InviteShareDelegate.shared.onShareChanged = {
-                Task { await refreshSharedName() }
-            }
-            Task { await refreshSharedName() }
+            Task { await refresh() }
         }
-        .alert("Stop sharing?", isPresented: $showStopConfirm) {
-            Button("Stop Sharing", role: .destructive) {
-                stopSharing()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("\(displaySharedName) will no longer be able to see or edit \(baby.name)’s logs.")
+        .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidReceiveShare)) { _ in
+            Task { await refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanPartnerDataDidChange)) { _ in
+            Task { await refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanShareAcceptFailed)) { note in
+            errorMessage = note.userInfo?["error"] as? String
+            isWorking = false
         }
         .alert("Sharing", isPresented: Binding(
             get: { errorMessage != nil },
@@ -143,44 +77,145 @@ struct ShareBabyButton: View {
         } message: {
             Text(errorMessage ?? "")
         }
-    }
-
-    private func refreshSharedName() async {
-        if let name = await sharingCoordinator.sharedWithDisplayName(for: baby) {
-            sharedWithName = name
-            hasPartnerShare = true
+        .alert(isParticipant ? "Leave this share?" : "Stop sharing?", isPresented: $showStopConfirm) {
+            Button(isParticipant ? "Leave" : "Stop Sharing", role: .destructive) {
+                Task { await stopSharing() }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
-    private func prepareShare() {
-        isPreparing = true
-        Task {
-            do {
-                let preparedShare = try await sharingCoordinator.prepareShare(for: baby, modelContext: modelContext)
-                sharingCoordinator.cacheParticipantNames(from: preparedShare)
-                await refreshSharedName()
-                InviteShareDelegate.shared.present(
-                    share: preparedShare,
-                    container: sharingCoordinator.ckContainer
-                )
-            } catch {
-                errorMessage = error.localizedDescription
+    @ViewBuilder
+    private var connectedRows: some View {
+        LabeledContent("Status", value: isParticipant ? "Joined" : "Sharing")
+        TextField("Other parent’s name", text: $customName)
+            .onChange(of: customName) { _, newValue in
+                sharingCoordinator.setCustomPartnerName(newValue)
             }
-            isPreparing = false
+        if !parentName.isEmpty {
+            LabeledContent(isParticipant ? "Sharing with" : "Shared with", value: parentName)
+        }
+        Button(isParticipant ? "Leave share" : "Stop sharing", role: .destructive) {
+            showStopConfirm = true
         }
     }
 
-    private func stopSharing() {
-        isStopping = true
-        Task {
-            do {
-                try await sharingCoordinator.stopSharing(for: baby)
-                hasPartnerShare = false
-                sharedWithName = ""
-            } catch {
-                errorMessage = error.localizedDescription
+    @ViewBuilder
+    private var waitingRows: some View {
+        if !inviteCode.isEmpty {
+            LabeledContent("Invite code") {
+                Text(inviteCode)
+                    .font(.title2.weight(.semibold).monospaced())
+                    .textSelection(.enabled)
             }
-            isStopping = false
+        }
+        if let inviteURL {
+            ShareLink("Send invite", item: inviteURL, subject: Text("SleepyBean"), message: Text("Join \(baby.name) on SleepyBean. Code \(inviteCode)."))
+        }
+        Button("Copy code") {
+            UIPasteboard.general.string = inviteCode
+        }
+        Button("Stop sharing", role: .destructive) {
+            showStopConfirm = true
+        }
+    }
+
+    @ViewBuilder
+    private var setupRows: some View {
+        Button {
+            Task { await createInvite() }
+        } label: {
+            if isWorking {
+                HStack {
+                    ProgressView()
+                    Text("Creating invite…")
+                }
+            } else {
+                Text("Invite a parent")
+            }
+        }
+        .disabled(isWorking)
+
+        TextField("Invite code", text: $joinCode)
+            .textInputAutocapitalization(.characters)
+            .disableAutocorrection(true)
+            .font(.body.monospaced())
+            .onChange(of: joinCode) { _, newValue in
+                joinCode = CloudKitSharingCoordinator.normalizedInviteCode(newValue)
+            }
+
+        Button("Join") {
+            Task { await join() }
+        }
+        .disabled(isWorking || CloudKitSharingCoordinator.normalizedInviteCode(joinCode).count != 6)
+    }
+
+    private var footerText: Text {
+        if isConnected {
+            return Text("Naps and feeds stay in sync while SleepyBean is open.")
+        }
+        if isOwnerWaiting {
+            return Text("Send the invite, or have them type this code in Settings → Parents.")
+        }
+        return Text("Create an invite on one phone. The other parent enters the code here.")
+    }
+
+    private func refresh() async {
+        _ = await sharingCoordinator.sharedWithDisplayName(for: baby)
+        hasPartnerShare = sharingCoordinator.hasPartnerShare
+        isParticipant = UserDefaults.standard.bool(forKey: CloudKitSharingCoordinator.isParticipantKey)
+        sharedWithName = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.sharedWithNameKey) ?? sharedWithName
+        customName = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.customNameKey) ?? customName
+        inviteHint = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.inviteHintKey) ?? inviteHint
+        inviteAccepted = UserDefaults.standard.bool(forKey: CloudKitSharingCoordinator.inviteAcceptedKey)
+        inviteCode = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.inviteCodeKey) ?? inviteCode
+        inviteURL = await sharingCoordinator.inviteURL(for: baby)
+        if hasPartnerShare, !isParticipant, inviteCode.isEmpty, let share = await sharingCoordinator.currentShare(for: baby) {
+            inviteCode = (try? await sharingCoordinator.publishInvite(for: share)) ?? inviteCode
+            inviteURL = share.url ?? inviteURL
+        }
+    }
+
+    private func createInvite() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            let share = try await sharingCoordinator.prepareShare(for: baby, modelContext: modelContext)
+            inviteURL = share.url
+            inviteCode = try await sharingCoordinator.publishInvite(for: share)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func join() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await sharingCoordinator.join(usingCode: CloudKitSharingCoordinator.normalizedInviteCode(joinCode))
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func stopSharing() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await sharingCoordinator.stopSharing(for: baby)
+            hasPartnerShare = false
+            isParticipant = false
+            inviteAccepted = false
+            sharedWithName = ""
+            customName = ""
+            inviteHint = ""
+            inviteCode = ""
+            inviteURL = nil
+            joinCode = ""
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

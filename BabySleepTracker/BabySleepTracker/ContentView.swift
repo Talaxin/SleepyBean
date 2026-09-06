@@ -7,6 +7,9 @@ struct ContentView: View {
     @Query(sort: \BabyProfile.createdAt) private var babies: [BabyProfile]
     @State private var selectedBabyID: UUID?
     @State private var showOnboarding = false
+    @AppStorage("partner.hasShare") private var hasPartnerShare = false
+
+    private let partnerPoll = Timer.publish(every: 6, on: .main, in: .common).autoconnect()
 
     private var selectedBaby: BabyProfile? {
         if let selectedBabyID,
@@ -31,6 +34,11 @@ struct ContentView: View {
                 }
             }
         }
+        .onOpenURL { url in
+            Task {
+                await CloudKitSharingCoordinator.shared.acceptShare(from: url)
+            }
+        }
         .onAppear {
             if babies.isEmpty {
                 showOnboarding = true
@@ -47,6 +55,11 @@ struct ContentView: View {
                     self.selectedBabyID = selectedBaby?.id
                 }
                 await CloudKitSharingCoordinator.shared.consumePendingShare(modelContext: modelContext)
+                if let sharedID = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.babyUUIDKey),
+                   let uuid = UUID(uuidString: sharedID),
+                   babies.contains(where: { $0.id == uuid }) {
+                    selectedBabyID = uuid
+                }
             }
         }
         .onChange(of: babies.map(\.id)) { _, _ in
@@ -74,7 +87,18 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidReceiveShare)) { _ in
             Task {
                 await CloudKitSharingCoordinator.shared.pullPartnerData(into: modelContext)
-                selectedBabyID = selectedBaby?.id
+                if let sharedID = UserDefaults.standard.string(forKey: CloudKitSharingCoordinator.babyUUIDKey),
+                   let uuid = UUID(uuidString: sharedID) {
+                    selectedBabyID = uuid
+                } else {
+                    selectedBabyID = selectedBaby?.id
+                }
+            }
+        }
+        .onReceive(partnerPoll) { _ in
+            guard scenePhase == .active, hasPartnerShare else { return }
+            Task {
+                await CloudKitSharingCoordinator.shared.pullPartnerData(into: modelContext)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidRestoreBackup)) { note in

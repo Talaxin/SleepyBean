@@ -75,10 +75,12 @@ struct AddSleepView: View {
         )
         session.baby = baby
         modelContext.insert(session)
-        if isOngoing {
-            Task {
+        try? modelContext.save()
+        Task {
+            if isOngoing {
                 await TrackingLiveActivityManager.sync(for: baby)
             }
+            await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
         }
         dismiss()
     }
@@ -137,12 +139,12 @@ struct EditSleepView: View {
                     Button("Delete Entry", role: .destructive) {
                         let baby = session.baby
                         modelContext.delete(session)
-                        if let baby {
-                            Task {
+                        try? modelContext.save()
+                        Task {
+                            if let baby {
                                 await TrackingLiveActivityManager.sync(for: baby)
-                            }
-                        } else {
-                            Task {
+                                await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
+                            } else {
                                 await TrackingLiveActivityManager.endAll()
                             }
                         }
@@ -169,9 +171,11 @@ struct EditSleepView: View {
         session.endTime = isOngoing ? nil : endTime
         session.type = sleepType
         session.notes = notes
+        try? modelContext.save()
         if let baby = session.baby {
             Task {
                 await TrackingLiveActivityManager.sync(for: baby)
+                await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
             }
         }
         dismiss()
@@ -212,8 +216,14 @@ struct EditFeedView: View {
 
                 Section {
                     Button("Delete Entry", role: .destructive) {
+                        let baby = entry.baby
                         modelContext.delete(entry)
                         try? modelContext.save()
+                        if let baby {
+                            Task {
+                                await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
+                            }
+                        }
                         dismiss()
                     }
                 }
@@ -229,6 +239,11 @@ struct EditFeedView: View {
                         entry.timestamp = timestamp
                         entry.feedSide = side
                         try? modelContext.save()
+                        if let baby = entry.baby {
+                            Task {
+                                await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby, modelContext: modelContext)
+                            }
+                        }
                         dismiss()
                     }
                     .fontWeight(.semibold)
