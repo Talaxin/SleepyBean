@@ -14,6 +14,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A60000010000000000000002"
+               BuildableName = "SleepyBeanWidgets.appex"
+               BlueprintName = "SleepyBeanWidgets"
+               ReferencedContainer = "container:BabySleepTracker.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "A60000010000000000000001"
                BuildableName = "BabySleepTracker.app"
                BlueprintName = "BabySleepTracker"

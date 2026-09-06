@@ -24,6 +24,19 @@ struct HomeView: View {
             .sorted { $0.startTime > $1.startTime }
     }
 
+    private var todayFeeds: [FeedEntry] {
+        let calendar = Calendar.current
+        return baby.feedEntries
+            .filter { calendar.isDate($0.timestamp, inSameDayAs: Date()) }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private var todayLogItems: [TodayLogItem] {
+        let sessions = todaySessions.map(TodayLogItem.sleep)
+        let feeds = todayFeeds.map(TodayLogItem.feed)
+        return (sessions + feeds).sorted { $0.sortDate > $1.sortDate }
+    }
+
     private var activeSession: SleepSession? {
         baby.sleepSessions.first { $0.isActive }
     }
@@ -220,16 +233,26 @@ struct HomeView: View {
             Text("Today's Log")
                 .font(.headline)
 
-            if todaySessions.isEmpty {
+            if todayLogItems.isEmpty {
                 EmptyTimelineCard(mode: trackingMode)
             } else {
-                ForEach(todaySessions, id: \.id) { session in
-                    SleepSessionRow(session: session, now: liveNow)
-                        .contextMenu {
-                            Button("Delete", role: .destructive) {
-                                deleteSession(session)
+                ForEach(todayLogItems) { item in
+                    switch item {
+                    case .sleep(let session):
+                        SleepSessionRow(session: session, now: liveNow)
+                            .contextMenu {
+                                Button("Delete", role: .destructive) {
+                                    deleteSession(session)
+                                }
                             }
-                        }
+                    case .feed(let entry):
+                        FeedEntryRow(entry: entry, now: liveNow)
+                            .contextMenu {
+                                Button("Delete", role: .destructive) {
+                                    deleteFeed(entry)
+                                }
+                            }
+                    }
                 }
             }
         }
@@ -268,7 +291,33 @@ struct HomeView: View {
     }
 
     private func deleteSession(_ session: SleepSession) {
+        if session.isActive {
+            TrackingLiveActivityManager.end()
+        }
         modelContext.delete(session)
+    }
+
+    private func deleteFeed(_ entry: FeedEntry) {
+        modelContext.delete(entry)
+    }
+}
+
+private enum TodayLogItem: Identifiable {
+    case sleep(SleepSession)
+    case feed(FeedEntry)
+
+    var id: UUID {
+        switch self {
+        case .sleep(let session): return session.id
+        case .feed(let entry): return entry.id
+        }
+    }
+
+    var sortDate: Date {
+        switch self {
+        case .sleep(let session): return session.startTime
+        case .feed(let entry): return entry.timestamp
+        }
     }
 }
 

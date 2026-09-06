@@ -53,10 +53,17 @@ echo "==> Packaging IPA from: $APP_PATH"
 mkdir -p "$OUTPUT_DIR/Payload"
 ditto "$APP_PATH" "$OUTPUT_DIR/Payload/BabySleepTracker.app"
 
-# Sideload builds ship without extensions for reliable Feather installs.
-if [[ -d "$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns" ]]; then
-  echo "==> Removing embedded extensions for sideload distribution"
-  rm -rf "$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns"
+WIDGET_PLIST="$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns/SleepyBeanWidgets.appex/Info.plist"
+if [[ -f "$WIDGET_PLIST" ]]; then
+  if ! /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$WIDGET_PLIST" >/dev/null 2>&1; then
+    echo "==> Patching widget Info.plist with NSExtension metadata"
+    /usr/libexec/PlistBuddy -c 'Add :NSExtension dict' "$WIDGET_PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c 'Add :NSExtension:NSExtensionPointIdentifier string com.apple.widgetkit-extension' "$WIDGET_PLIST" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c 'Set :NSExtension:NSExtensionPointIdentifier com.apple.widgetkit-extension' "$WIDGET_PLIST"
+  fi
+else
+  echo "ERROR: Live Activity widget extension missing from app bundle" >&2
+  exit 1
 fi
 (
   cd "$OUTPUT_DIR"

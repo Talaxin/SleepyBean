@@ -31,6 +31,42 @@ struct StatCard: View {
     }
 }
 
+struct FeedEntryRow: View {
+    let entry: FeedEntry
+    var now: Date = Date()
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.pink.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: entry.feedSide.icon)
+                    .foregroundStyle(.pink)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Feed · \(entry.feedSide.rawValue)")
+                    .font(.subheadline.weight(.semibold))
+                Text(SleepFormatter.formatFeedSummary(entry.timestamp, now: now))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(entry.formattedTime)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.pink)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(AppTheme.cardBackground)
+        )
+    }
+}
+
 struct SleepSessionRow: View {
     let session: SleepSession
     var now: Date = Date()
@@ -120,8 +156,8 @@ struct EmptyTimelineCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(mode == .daytime
-                 ? "Tap the big button to start a nap"
-                 : "Tap the big button when baby wakes up")
+                 ? "Tap the big button to start a nap, or log a feed below"
+                 : "Tap the big button when baby wakes up, or log a feed below")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

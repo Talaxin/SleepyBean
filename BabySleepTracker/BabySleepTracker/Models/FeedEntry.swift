@@ -41,4 +41,10 @@ final class FeedEntry {
         get { FeedSide(rawValue: side) ?? .left }
         set { side = newValue.rawValue }
     }
+
+    var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp)
+    }
 }

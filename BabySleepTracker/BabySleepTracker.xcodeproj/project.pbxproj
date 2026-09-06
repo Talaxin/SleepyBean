@@ -56,6 +56,7 @@
 		A20000010000000000000014 /* FeedingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedingCard.swift; sourceTree = "<group>"; };
 		A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyBeanWidgetsBundle.swift; sourceTree = "<group>"; };
 		A20000010000000000000016 /* TrackingLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingLiveActivityWidget.swift; sourceTree = "<group>"; };
+		A20000010000000000000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30000010000000000000001 /* BabySleepTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BabySleepTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000010000000000000002 /* SleepyBeanWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SleepyBeanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -131,6 +132,7 @@
 		A50000010000000000000008 /* SleepyBeanWidgets */ = {
 			isa = PBXGroup;
 			children = (
+				A20000010000000000000017 /* Info.plist */,
 				A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */,
 				A20000010000000000000016 /* TrackingLiveActivityWidget.swift */,
 			);
@@ -184,10 +186,12 @@
 				A70000010000000000000001 /* Sources */,
 				A40000010000000000000001 /* Frameworks */,
 				A70000010000000000000002 /* Resources */,
+				A70000010000000000000005 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AC0000010000000000000001 /* PBXTargetDependency */,
 			);
 			name = BabySleepTracker;
 			productName = BabySleepTracker;
@@ -510,8 +514,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SleepyBeanWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBeanWidgets;
-				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -534,8 +538,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SleepyBeanWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBeanWidgets;
-				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
