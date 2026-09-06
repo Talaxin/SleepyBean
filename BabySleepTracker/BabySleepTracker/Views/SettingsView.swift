@@ -13,11 +13,9 @@ struct SettingsView: View {
     @State private var showAddBaby = false
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
-    @State private var showRestoreConfirm = false
     @State private var showImportRestoreConfirm = false
     @State private var statusMessage: String?
     @State private var isWorking = false
-    @State private var iCloudStatus = iCloudBackupService.shared.accountStatus
     @State private var showExportPicker = false
     @State private var showImportPicker = false
     @State private var exportDocument = BackupJSONDocument()
@@ -29,10 +27,6 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         return "\(version) (\(build))"
-    }
-
-    private var systemLiveActivitiesEnabled: Bool {
-        TrackingLiveActivityManager.isSupported
     }
 
     var body: some View {
@@ -84,18 +78,13 @@ struct SettingsView: View {
                 }
 
                 Section("Live Activity") {
-                    Toggle("Show lock screen timer", isOn: $liveActivitiesEnabled)
+                    Toggle("Live activity", isOn: $liveActivitiesEnabled)
                         .onChange(of: liveActivitiesEnabled) { _, enabled in
                             handleLiveActivityToggle(enabled)
                         }
 
-                    LabeledContent("iOS permission") {
-                        Text(systemLiveActivitiesEnabled ? "Allowed" : "Off in iOS Settings")
-                            .foregroundStyle(systemLiveActivitiesEnabled ? .green : .orange)
-                    }
-
-                    if liveActivitiesEnabled && !systemLiveActivitiesEnabled {
-                        Text("Turn on Live Activities for SleepyBean in iOS Settings.")
+                    if liveActivitiesEnabled && !TrackingLiveActivityManager.isSupported {
+                        Text("Live Activities are off for SleepyBean in iOS Settings.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -110,81 +99,31 @@ struct SettingsView: View {
                 }
 
                 Section("iCloud Backup") {
-                    Toggle("Enable iCloud backup", isOn: $iCloudBackupEnabled)
-
-                    LabeledContent("iCloud status") {
-                        Text(iCloudStatus.label)
-                            .foregroundStyle(iCloudStatus.isPositive ? .green : .orange)
-                    }
+                    Toggle("Enable backup", isOn: $iCloudBackupEnabled)
 
                     if iCloudBackupEnabled {
-                        switch iCloudStatus {
-                        case .notSignedIn:
-                            Text("Sign in to iCloud and turn on iCloud Drive.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Button("Sign in to iCloud") {
-                                SystemSettings.openiCloudSettings()
-                            }
-
-                        case .signedInNoContainer:
-                            Text("You are signed in, but this install cannot access iCloud Drive. Use Export to Files below and choose iCloud Drive, or re-sign in Feather with iCloud enabled.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Button("Open iCloud Settings") {
-                                SystemSettings.openiCloudSettings()
-                            }
-
-                        case .ready:
-                            if let lastBackupDate = backupService.lastBackupDate {
-                                LabeledContent("Last iCloud backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
-                            }
-
-                            Button {
-                                performCloudBackup()
-                            } label: {
-                                Label("Back Up to iCloud", systemImage: "icloud.and.arrow.up")
-                            }
-                            .disabled(isWorking)
-
-                            Button {
-                                showRestoreConfirm = true
-                            } label: {
-                                Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
-                            }
-                            .disabled(isWorking)
-
-                            Text("SleepyBean also backs up automatically when you leave the app.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        if let lastBackupDate = backupService.lastBackupDate {
+                            LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
                         }
-                    }
-                }
 
-                Section("Files Backup") {
-                    if let lastLocalBackupDate = backupService.lastLocalBackupDate {
-                        LabeledContent("Last local backup", value: lastLocalBackupDate.formatted(date: .abbreviated, time: .shortened))
-                    }
+                        Button {
+                            saveAndExportBackup()
+                        } label: {
+                            Label("Save to iCloud Drive", systemImage: "icloud.and.arrow.up")
+                        }
+                        .disabled(isWorking)
 
-                    Button {
-                        prepareExport()
-                    } label: {
-                        Label("Export to Files", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(isWorking)
+                        Button {
+                            showImportPicker = true
+                        } label: {
+                            Label("Restore from backup", systemImage: "icloud.and.arrow.down")
+                        }
+                        .disabled(isWorking)
 
-                    Button {
-                        showImportPicker = true
-                    } label: {
-                        Label("Import from Files", systemImage: "square.and.arrow.down")
+                        Text("Tap Save, then choose iCloud Drive in Files. SleepyBean also saves a backup automatically when you leave the app.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .disabled(isWorking)
-
-                    Text("Save a backup to iCloud Drive, On My iPhone, or another device. Works even when automatic iCloud backup is unavailable.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
 
                 Section("About") {
@@ -193,7 +132,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Data stays on your device. Turn on iCloud backup or export to Files to keep a copy elsewhere.")
+                    Text("Data stays on your device. Turn on backup to keep a copy in iCloud Drive.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -202,26 +141,9 @@ struct SettingsView: View {
             .onAppear {
                 editName = baby.name
                 editBirthDate = baby.birthDate
-                refreshiCloudStatus()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    refreshiCloudStatus()
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .NSUbiquityIdentityDidChange)) { _ in
-                refreshiCloudStatus()
-            }
-            .alert("Restore from iCloud?", isPresented: $showRestoreConfirm) {
-                Button("Restore", role: .destructive) {
-                    performCloudRestore()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This replaces all sleep and feeding data on this device with your latest iCloud backup.")
             }
             .alert("Import backup?", isPresented: $showImportRestoreConfirm) {
-                Button("Import", role: .destructive) {
+                Button("Restore", role: .destructive) {
                     performImportRestore()
                 }
                 Button("Cancel", role: .cancel) {}
@@ -232,11 +154,6 @@ struct SettingsView: View {
                 get: { statusMessage != nil },
                 set: { if !$0 { statusMessage = nil } }
             )) {
-                if shouldOfferiCloudSettings {
-                    Button("Open iCloud Settings") {
-                        SystemSettings.openiCloudSettings()
-                    }
-                }
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(statusMessage ?? "")
@@ -247,8 +164,11 @@ struct SettingsView: View {
                 contentType: .json,
                 defaultFilename: "SleepyBeanBackup"
             ) { result in
-                if case .success = result {
-                    statusMessage = "Backup exported. You can save it to iCloud Drive in Files."
+                switch result {
+                case .success:
+                    statusMessage = "Backup saved. Choose iCloud Drive to store it in the cloud."
+                case .failure(let error):
+                    statusMessage = error.localizedDescription
                 }
             }
             .fileImporter(
@@ -266,15 +186,6 @@ struct SettingsView: View {
         }
     }
 
-    private var shouldOfferiCloudSettings: Bool {
-        guard let statusMessage else { return false }
-        return statusMessage.localizedCaseInsensitiveContains("icloud")
-    }
-
-    private func refreshiCloudStatus() {
-        iCloudStatus = backupService.accountStatus
-    }
-
     private func handleLiveActivityToggle(_ enabled: Bool) {
         Task {
             if enabled {
@@ -285,12 +196,12 @@ struct SettingsView: View {
         }
     }
 
-    private func prepareExport() {
+    private func saveAndExportBackup() {
         isWorking = true
         do {
+            try backupService.saveBackup(context: modelContext)
             let data = try backupService.makeBackupData(context: modelContext)
             exportDocument = BackupJSONDocument(data: data)
-            try backupService.saveLocalBackup(context: modelContext)
             showExportPicker = true
         } catch {
             statusMessage = error.localizedDescription
@@ -326,44 +237,6 @@ struct SettingsView: View {
         Task {
             do {
                 try backupService.restoreBackupData(data, context: modelContext)
-                await TrackingLiveActivityManager.sync(for: baby)
-                statusMessage = "Import complete."
-            } catch {
-                statusMessage = error.localizedDescription
-            }
-            isWorking = false
-        }
-    }
-
-    private func performCloudBackup() {
-        guard iCloudBackupEnabled else {
-            statusMessage = "Turn on iCloud backup first."
-            return
-        }
-
-        isWorking = true
-        Task {
-            do {
-                try await backupService.backup(context: modelContext)
-                refreshiCloudStatus()
-                statusMessage = "Backup saved to iCloud."
-            } catch {
-                statusMessage = error.localizedDescription
-            }
-            isWorking = false
-        }
-    }
-
-    private func performCloudRestore() {
-        guard iCloudBackupEnabled else {
-            statusMessage = "Turn on iCloud backup first."
-            return
-        }
-
-        isWorking = true
-        Task {
-            do {
-                try await backupService.restore(context: modelContext)
                 await TrackingLiveActivityManager.sync(for: baby)
                 statusMessage = "Restore complete."
             } catch {
