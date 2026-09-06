@@ -9,8 +9,6 @@ struct TrackingTimerCard: View {
     let onMainTap: () -> Void
     let onModeToggle: () -> Void
 
-    @State private var isPressed = false
-
     private var accentColor: Color {
         if isTracking, let trackedType {
             return trackedType.accentColor
@@ -43,69 +41,66 @@ struct TrackingTimerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Button(action: onMainTap) {
-                VStack(spacing: 16) {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let elapsed = elapsedDuration(at: context.date)
+            VStack(spacing: 16) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let elapsed = elapsedDuration(at: context.date)
 
-                        ZStack {
+                    ZStack {
+                        Circle()
+                            .stroke(accentColor.opacity(0.2), lineWidth: 8)
+                            .frame(width: 200, height: 200)
+
+                        if isTracking {
                             Circle()
-                                .stroke(accentColor.opacity(0.2), lineWidth: 8)
+                                .trim(from: 0, to: min(1, elapsed / progressCap))
+                                .stroke(accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                                 .frame(width: 200, height: 200)
+                                .rotationEffect(.degrees(-90))
+                        }
+
+                        VStack(spacing: 8) {
+                            Image(systemName: isTracking ? (trackedType?.icon ?? idleIcon) : idleIcon)
+                                .font(.system(size: 40))
+                                .symbolEffect(.bounce, value: isTracking)
 
                             if isTracking {
-                                Circle()
-                                    .trim(from: 0, to: min(1, elapsed / progressCap))
-                                    .stroke(accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                                    .frame(width: 200, height: 200)
-                                    .rotationEffect(.degrees(-90))
+                                Text(SleepFormatter.formatDuration(elapsed))
+                                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                                    .monospacedDigit()
+                                    .contentTransition(.numericText())
+                                    .animation(.default, value: elapsed)
+
+                                Text(trackedType?.rawValue ?? mode.title)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(idleTitle)
+                                    .font(.title3.bold())
                             }
-
-                            VStack(spacing: 8) {
-                                Image(systemName: isTracking ? (trackedType?.icon ?? idleIcon) : idleIcon)
-                                    .font(.system(size: 40))
-                                    .symbolEffect(.bounce, value: isTracking)
-
-                                if isTracking, let startTime {
-                                    Text(SleepFormatter.formatDuration(elapsed))
-                                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                                        .monospacedDigit()
-                                        .contentTransition(.numericText())
-                                        .animation(.default, value: elapsed)
-
-                                    Text(trackedType?.rawValue ?? mode.title)
-                                        .font(.caption.weight(.medium))
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    Text(idleTitle)
-                                        .font(.title3.bold())
-                                }
-                            }
-                            .foregroundStyle(isTracking ? accentColor : .primary)
                         }
+                        .foregroundStyle(isTracking ? accentColor : .primary)
                     }
-
-                    Text(isTracking ? trackingHint : idleHint)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
                 }
-                .padding(.vertical, 24)
-                .padding(.horizontal, 20)
-                .frame(maxWidth: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(AppTheme.cardBackground)
-                        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-                )
-                .scaleEffect(isPressed ? 0.97 : 1.0)
+
+                Text(isTracking ? trackingHint : idleHint)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .buttonStyle(.plain)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in withAnimation(.easeInOut(duration: 0.1)) { isPressed = true } }
-                    .onEnded { _ in withAnimation(.easeInOut(duration: 0.1)) { isPressed = false } }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(AppTheme.cardBackground)
+                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
             )
+            .contentShape(RoundedRectangle(cornerRadius: 24))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(isTracking ? trackingHint : idleTitle)
+            .onTapGesture {
+                onMainTap()
+            }
             .sensoryFeedback(.impact(weight: .medium), trigger: isTracking)
 
             Button(action: onModeToggle) {

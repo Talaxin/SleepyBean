@@ -25,9 +25,9 @@ enum FeedSide: String, Codable, CaseIterable {
 
 @Model
 final class FeedEntry {
-    var id: UUID
-    var timestamp: Date
-    var side: String
+    var id: UUID = UUID()
+    var timestamp: Date = Date()
+    var side: String = FeedSide.left.rawValue
 
     var baby: BabyProfile?
 

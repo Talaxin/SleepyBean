@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 final class BabyProfile {
-    var id: UUID
-    var name: String
-    var birthDate: Date
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var birthDate: Date = Date()
+    var createdAt: Date = Date()
 
     @Relationship(deleteRule: .cascade, inverse: \SleepSession.baby)
     var sleepSessions: [SleepSession] = []

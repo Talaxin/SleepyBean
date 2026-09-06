@@ -59,11 +59,11 @@ enum TrackingMode: String, CaseIterable {
 
 @Model
 final class SleepSession {
-    var id: UUID
-    var startTime: Date
+    var id: UUID = UUID()
+    var startTime: Date = Date()
     var endTime: Date?
-    var sleepType: String
-    var notes: String
+    var sleepType: String = SleepType.nap.rawValue
+    var notes: String = ""
 
     var baby: BabyProfile?
 

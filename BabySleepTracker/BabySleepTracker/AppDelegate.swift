@@ -6,7 +6,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        true
+        application.registerForRemoteNotifications()
+        if let storeURL = SleepyBeanModelContainer.storeURL {
+            Task { @MainActor in
+                CloudKitSharingCoordinator.shared.configure(storeURL: storeURL)
+            }
+        }
+        return true
     }
 
     func application(

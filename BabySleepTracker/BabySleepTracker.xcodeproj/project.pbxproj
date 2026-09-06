@@ -66,9 +66,11 @@
 		A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyBeanWidgetsBundle.swift; sourceTree = "<group>"; };
 		A20000010000000000000016 /* TrackingLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingLiveActivityWidget.swift; sourceTree = "<group>"; };
 		A20000010000000000000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000010000000000000022 /* SleepyBeanWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SleepyBeanWidgets.entitlements; sourceTree = "<group>"; };
 		A20000010000000000000018 /* SleepyBeanBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyBeanBackup.swift; sourceTree = "<group>"; };
 		A20000010000000000000019 /* iCloudBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBackupService.swift; sourceTree = "<group>"; };
 		A2000001000000000000001A /* BabySleepTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BabySleepTracker.entitlements; sourceTree = "<group>"; };
+		A20000010000000000000023 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000001000000000000001B /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		A2000001000000000000001C /* SystemSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSettings.swift; sourceTree = "<group>"; };
 		A2000001000000000000001D /* CloudKitConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitConfiguration.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				A20000010000000000000020 /* AppDelegate.swift */,
 				A20000010000000000000002 /* ContentView.swift */,
 				A2000001000000000000001A /* BabySleepTracker.entitlements */,
+				A20000010000000000000023 /* Info.plist */,
 				A50000010000000000000004 /* Models */,
 				A50000010000000000000005 /* Services */,
 				A50000010000000000000006 /* Views */,
@@ -154,6 +157,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000010000000000000017 /* Info.plist */,
+				A20000010000000000000022 /* SleepyBeanWidgets.entitlements */,
 				A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */,
 				A20000010000000000000016 /* TrackingLiveActivityWidget.swift */,
 			);
@@ -263,9 +267,13 @@
 				TargetAttributes = {
 					A60000010000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
+						DevelopmentTeam = 3H2DT5L97M;
+						ProvisioningStyle = Automatic;
 					};
 					A60000010000000000000002 = {
 						CreatedOnToolsVersion = 16.0;
+						DevelopmentTeam = 3H2DT5L97M;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -489,9 +497,10 @@
 				CODE_SIGN_ENTITLEMENTS = BabySleepTracker/BabySleepTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 3H2DT5L97M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BabySleepTracker/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBean;
 				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -507,7 +516,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepybean.tracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -524,9 +533,10 @@
 				CODE_SIGN_ENTITLEMENTS = BabySleepTracker/BabySleepTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 3H2DT5L97M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BabySleepTracker/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBean;
 				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -542,7 +552,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepybean.tracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -554,9 +564,10 @@
 		AA0000010000000000000005 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SleepyBeanWidgets/SleepyBeanWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 3H2DT5L97M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SleepyBeanWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBeanWidgets;
@@ -565,7 +576,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepybean.tracker.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -578,9 +589,10 @@
 		AA0000010000000000000006 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SleepyBeanWidgets/SleepyBeanWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 3H2DT5L97M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SleepyBeanWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBeanWidgets;
@@ -589,7 +601,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepybean.tracker.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
