@@ -16,6 +16,15 @@
       "category": "lifestyle",
       "versions": [
         {
+          "version": "1.2.13",
+          "buildVersion": "13",
+          "date": "2026-09-06T02:24:03Z",
+          "localizedDescription": "SleepyBean 1.2.13 \u2014 feeding, day/night modes, wake windows.",
+          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.13/SleepyBean.ipa",
+          "size": 2530235,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.2.12",
           "buildVersion": "12",
           "date": "2026-09-06T01:23:18Z",
@@ -60,10 +69,10 @@
         ],
         "privacy": {}
       },
-      "version": "1.2.12",
-      "versionDate": "2026-09-06T01:23:18Z",
-      "size": 2514265,
-      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.12/SleepyBean.ipa"
+      "version": "1.2.13",
+      "versionDate": "2026-09-06T02:24:03Z",
+      "size": 2530235,
+      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.13/SleepyBean.ipa"
     }
   ],
   "news": [
