@@ -1,12 +1,35 @@
 import CloudKit
 import SwiftUI
+import UIKit
 
-struct ShareBabyView: View {
+struct ShareBabyView: UIViewControllerRepresentable {
     let share: CKShare
     let container: CKContainer
 
-    var body: some View {
-        CloudSharingView(share, container: container) { _ in }
+    func makeUIViewController(context: Context) -> UICloudSharingController {
+        UICloudSharingController(share: share, container: container, delegate: context.coordinator)
+    }
+
+    func updateUIViewController(_ uiViewController: UICloudSharingController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator: NSObject, UICloudSharingControllerDelegate {
+        func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {}
+
+        func itemTitle(for csc: UICloudSharingController) -> String? {
+            "SleepyBean"
+        }
+
+        func itemThumbnailData(for csc: UICloudSharingController) -> Data? {
+            nil
+        }
+
+        func itemType(for csc: UICloudSharingController) -> String? {
+            "Baby profile"
+        }
     }
 }
 

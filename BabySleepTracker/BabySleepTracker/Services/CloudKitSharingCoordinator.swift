@@ -80,6 +80,7 @@ final class CloudKitSharingCoordinator {
     }
 
     func existingShare(for baby: BabyProfile, modelContext: ModelContext) throws -> CKShare? {
+        ensureConfigured()
         guard let container = persistentContainer else { return nil }
         guard let managedObject = managedObject(for: baby, modelContext: modelContext) else {
             throw BabySharingError.objectNotFound
@@ -93,6 +94,7 @@ final class CloudKitSharingCoordinator {
         guard SleepyBeanModelContainer.isCloudKitEnabled else {
             throw BabySharingError.cloudKitUnavailable
         }
+        ensureConfigured()
         guard let container = persistentContainer else {
             throw BabySharingError.coordinatorUnavailable
         }
@@ -105,6 +107,7 @@ final class CloudKitSharingCoordinator {
             return existingShare
         }
 
+        let babyName = baby.name
         return try await withCheckedThrowingContinuation { continuation in
             container.share([managedObject], to: nil) { _, share, _, error in
                 if let error {
@@ -117,13 +120,14 @@ final class CloudKitSharingCoordinator {
                     return
                 }
 
-                share[CKShare.SystemFieldKey.title] = "\(baby.name) — SleepyBean" as CKRecordValue
+                share[CKShare.SystemFieldKey.title] = "\(babyName) — SleepyBean" as CKRecordValue
                 continuation.resume(returning: share)
             }
         }
     }
 
     func acceptShare(metadata: CKShare.Metadata) async throws {
+        ensureConfigured()
         guard let container = persistentContainer else {
             throw BabySharingError.coordinatorUnavailable
         }
@@ -145,6 +149,12 @@ final class CloudKitSharingCoordinator {
 
     func isShared(_ baby: BabyProfile, modelContext: ModelContext) -> Bool {
         (try? existingShare(for: baby, modelContext: modelContext)) != nil
+    }
+
+    private func ensureConfigured() {
+        if let storeURL = SleepyBeanModelContainer.storeURL {
+            configure(storeURL: storeURL)
+        }
     }
 
     private func managedObject(for baby: BabyProfile, modelContext: ModelContext) -> NSManagedObject? {

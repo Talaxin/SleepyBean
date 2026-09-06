@@ -17,7 +17,6 @@ enum SleepyBeanModelContainer {
                 let container = try ModelContainer(for: schema, configurations: configuration)
                 isCloudKitEnabled = true
                 storeURL = configuration.url
-                CloudKitSharingCoordinator.shared.configure(storeURL: configuration.url)
                 return container
             } catch {
                 print("CloudKit ModelContainer failed, using local storage: \(error.localizedDescription)")
