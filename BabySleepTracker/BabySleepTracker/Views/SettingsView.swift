@@ -320,17 +320,17 @@ struct SettingsView: View {
     }
 
     private func performImportRestore() {
-        guard let pendingImportData else { return }
+        guard let data = pendingImportData else { return }
+        pendingImportData = nil
         isWorking = true
         Task {
             do {
-                try backupService.restoreBackupData(pendingImportData, context: modelContext)
+                try backupService.restoreBackupData(data, context: modelContext)
                 await TrackingLiveActivityManager.sync(for: baby)
                 statusMessage = "Import complete."
             } catch {
                 statusMessage = error.localizedDescription
             }
-            pendingImportData = nil
             isWorking = false
         }
     }
