@@ -27,8 +27,8 @@ struct TrackingTimerCard: View {
     private var trackingHint: String {
         switch trackedType {
         case .nap: return "Tap to end nap"
-        case .awake: return "Tap when baby falls asleep"
-        case .night: return "Tap to end sleep"
+        case .awake: return "Tap when baby falls back asleep"
+        case .night: return "Tap to log a wake"
         case .none: return ""
         }
     }
@@ -36,7 +36,7 @@ struct TrackingTimerCard: View {
     private var idleHint: String {
         mode == .daytime
             ? "Big button tracks naps"
-            : "Big button tracks awake time"
+            : "Tap to log a wake"
     }
 
     var body: some View {
@@ -126,7 +126,7 @@ struct TrackingTimerCard: View {
             .disabled(!canToggleMode)
             .opacity(canToggleMode ? 1 : 0.45)
             .padding(14)
-            .accessibilityLabel("Switch to \(mode == .daytime ? "nighttime" : "daytime") mode")
+            .accessibilityLabel(mode == .daytime ? "Log bedtime" : "Start daytime")
         }
     }
 
@@ -160,7 +160,16 @@ struct TrackingTimerCard: View {
             isTracking: true,
             startTime: Date().addingTimeInterval(-3723),
             trackedType: .nap,
-            canToggleMode: false,
+            canToggleMode: true,
+            onMainTap: {},
+            onModeToggle: {}
+        )
+        TrackingTimerCard(
+            mode: .nighttime,
+            isTracking: false,
+            startTime: nil,
+            trackedType: nil,
+            canToggleMode: true,
             onMainTap: {},
             onModeToggle: {}
         )
@@ -169,7 +178,7 @@ struct TrackingTimerCard: View {
             isTracking: true,
             startTime: Date().addingTimeInterval(-842),
             trackedType: .awake,
-            canToggleMode: false,
+            canToggleMode: true,
             onMainTap: {},
             onModeToggle: {}
         )

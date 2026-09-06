@@ -38,7 +38,8 @@ struct FeedingCard: View {
                         Circle()
                             .fill(Color.pink.opacity(0.15))
                             .frame(width: 44, height: 44)
-                        Image(systemName: lastFeed.feedSide.icon)
+                        Text(lastFeed.feedSide == .bottle ? "B" : lastFeed.feedSide.shortLabel)
+                            .font(.headline.weight(.bold))
                             .foregroundStyle(.pink)
                     }
 
@@ -63,20 +64,16 @@ struct FeedingCard: View {
                     Button {
                         onLogFeed(side)
                     } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: side.icon)
-                                .font(.title3)
-                            Text(side == .bottle ? "Bottle" : side.shortLabel)
-                                .font(.caption.weight(.semibold))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.pink.opacity(0.1))
-                        )
+                        Text(side == .bottle ? "Bottle" : side.shortLabel)
+                            .font(.title3.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.pink.opacity(0.1))
+                            )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(side.rawValue)
                 }
             }
         }

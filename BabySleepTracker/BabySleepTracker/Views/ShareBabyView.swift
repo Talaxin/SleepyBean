@@ -2,36 +2,48 @@ import CloudKit
 import SwiftUI
 import UIKit
 
-struct ShareBabyView: UIViewControllerRepresentable {
-    let share: CKShare
-    let container: CKContainer
+final class InviteShareDelegate: NSObject, UICloudSharingControllerDelegate {
+    static let shared = InviteShareDelegate()
 
-    func makeUIViewController(context: Context) -> UICloudSharingController {
-        let controller = UICloudSharingController(share: share, container: container)
-        controller.delegate = context.coordinator
-        return controller
+    func present(share: CKShare, container: CKContainer) {
+        DispatchQueue.main.async {
+            guard let presenter = Self.topViewController() else { return }
+            let controller = UICloudSharingController(share: share, container: container)
+            controller.delegate = self
+            controller.availablePermissions = [.allowReadWrite, .allowPrivate]
+            controller.popoverPresentationController?.sourceView = presenter.view
+            controller.popoverPresentationController?.sourceRect = CGRect(
+                x: presenter.view.bounds.midX,
+                y: presenter.view.bounds.midY,
+                width: 0,
+                height: 0
+            )
+            presenter.present(controller, animated: true)
+        }
     }
 
-    func updateUIViewController(_ uiViewController: UICloudSharingController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+    func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
+        print("Cloud sharing save failed: \(error.localizedDescription)")
     }
 
-    final class Coordinator: NSObject, UICloudSharingControllerDelegate {
-        func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {}
+    func itemTitle(for csc: UICloudSharingController) -> String? {
+        "SleepyBean"
+    }
 
-        func itemTitle(for csc: UICloudSharingController) -> String? {
-            "SleepyBean"
-        }
+    func itemType(for csc: UICloudSharingController) -> String? {
+        "com.sleepybean.tracker.baby"
+    }
 
-        func itemThumbnailData(for csc: UICloudSharingController) -> Data? {
-            nil
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.first { $0.activationState == .foregroundActive }?.keyWindow
+            ?? scenes.flatMap(\.windows).first { $0.isKeyWindow }
+            ?? scenes.flatMap(\.windows).first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
         }
-
-        func itemType(for csc: UICloudSharingController) -> String? {
-            "Baby profile"
-        }
+        return top
     }
 }
 
@@ -39,8 +51,7 @@ struct ShareBabyButton: View {
     let baby: BabyProfile
     @Environment(\.modelContext) private var modelContext
 
-    @State private var share: CKShare?
-    @State private var showShareSheet = false
+    @AppStorage("partner.hasShare") private var hasPartnerShare = false
     @State private var isPreparing = false
     @State private var errorMessage: String?
 
@@ -48,8 +59,8 @@ struct ShareBabyButton: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if sharingCoordinator.isShared(baby, modelContext: modelContext) {
-                Label("Shared with partner", systemImage: "person.2.fill")
+            if hasPartnerShare || sharingCoordinator.isShared(baby, modelContext: modelContext) {
+                Label("Shared with another parent", systemImage: "person.2.fill")
                     .foregroundStyle(AppTheme.sleepPurple)
             }
 
@@ -59,28 +70,17 @@ struct ShareBabyButton: View {
                 if isPreparing {
                     HStack {
                         ProgressView()
-                        Text("Preparing share…")
+                        Text("Preparing invite…")
                     }
                 } else {
-                    Label("Share with partner", systemImage: "person.badge.plus")
+                    Label("Invite Parent", systemImage: "person.badge.plus")
                 }
             }
-            .disabled(isPreparing || !SleepyBeanModelContainer.isCloudKitEnabled)
+            .disabled(isPreparing)
 
-            if !SleepyBeanModelContainer.isCloudKitEnabled {
-                Text("Build and install from Xcode with your Apple Developer account to enable partner sharing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Invite your partner by email or link. They can log naps and feeds on their own phone.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .sheet(isPresented: $showShareSheet) {
-            if let share {
-                ShareBabyView(share: share, container: sharingCoordinator.ckContainer)
-            }
+            Text("Sends a Messages or Mail invite. The other parent needs SleepyBean installed and signed in to iCloud.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .alert("Sharing", isPresented: Binding(
             get: { errorMessage != nil },
@@ -97,8 +97,10 @@ struct ShareBabyButton: View {
         Task {
             do {
                 let preparedShare = try await sharingCoordinator.prepareShare(for: baby, modelContext: modelContext)
-                share = preparedShare
-                showShareSheet = true
+                InviteShareDelegate.shared.present(
+                    share: preparedShare,
+                    container: sharingCoordinator.ckContainer
+                )
             } catch {
                 errorMessage = error.localizedDescription
             }

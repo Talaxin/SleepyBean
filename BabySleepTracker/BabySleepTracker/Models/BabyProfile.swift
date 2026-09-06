@@ -39,7 +39,46 @@ final class BabyProfile {
             if remainingMonths == 0 {
                 return "\(years) year\(years == 1 ? "" : "s") old"
             }
-            return "\(years)y \(remainingMonths)m old"
+        return "\(years)y \(remainingMonths)m old"
         }
+    }
+
+    @MainActor
+    static func mergeDuplicates(in context: ModelContext, babies: [BabyProfile]) {
+        let calendar = Calendar.current
+        var groups: [String: [BabyProfile]] = [:]
+        for baby in babies {
+            let name = baby.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let day = calendar.startOfDay(for: baby.birthDate)
+            let key = "\(name)|\(Int(day.timeIntervalSince1970))"
+            groups[key, default: []].append(baby)
+        }
+
+        for group in groups.values where group.count > 1 {
+            let keeper = group.max { lhs, rhs in
+                let leftCount = lhs.sleepSessions.count + lhs.feedEntries.count
+                let rightCount = rhs.sleepSessions.count + rhs.feedEntries.count
+                if leftCount != rightCount {
+                    return leftCount < rightCount
+                }
+                return lhs.createdAt > rhs.createdAt
+            }!
+
+            for duplicate in group where duplicate.id != keeper.id {
+                for session in duplicate.sleepSessions {
+                    if !keeper.sleepSessions.contains(where: { $0.id == session.id }) {
+                        session.baby = keeper
+                    }
+                }
+                for feed in duplicate.feedEntries {
+                    if !keeper.feedEntries.contains(where: { $0.id == feed.id }) {
+                        feed.baby = keeper
+                    }
+                }
+                context.delete(duplicate)
+            }
+        }
+
+        try? context.save()
     }
 }

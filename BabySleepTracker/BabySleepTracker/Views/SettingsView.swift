@@ -9,7 +9,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("settings.liveActivitiesEnabled") private var liveActivitiesEnabled = true
-    @AppStorage("settings.iCloudBackupEnabled") private var iCloudBackupEnabled = false
+    @AppStorage("settings.iCloudBackupEnabled") private var iCloudBackupEnabled = true
     @State private var showAddBaby = false
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
@@ -20,13 +20,15 @@ struct SettingsView: View {
     @State private var showImportPicker = false
     @State private var exportDocument = BackupJSONDocument()
     @State private var pendingImportData: Data?
+    @State private var iCloudAccount = iCloudAccountMonitor.shared
+    @State private var hasRemoteBackup = false
+    @State private var versionTapCount = 0
+    @State private var showClearLogsConfirm = false
 
     private let backupService = iCloudBackupService.shared
 
     private var appVersionString: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-        return "\(version) (\(build))"
+        AppPreferences.displayVersion
     }
 
     var body: some View {
@@ -44,12 +46,61 @@ struct SettingsView: View {
                         }
 
                     LabeledContent("Age", value: baby.ageDescription)
+
+                    ShareBabyButton(baby: baby)
                 }
 
-                if SleepyBeanModelContainer.isCloudKitEnabled {
-                    Section("Family Sharing") {
-                        ShareBabyButton(baby: baby)
+                Section("iCloud") {
+                    Label(iCloudAccount.statusText, systemImage: iCloudAccount.isSignedIn ? "checkmark.icloud.fill" : "icloud.slash")
+                        .foregroundStyle(iCloudAccount.isSignedIn ? AppTheme.sleepPurple : .secondary)
+
+                    if !iCloudAccount.isSignedIn {
+                        Button("Sign in to iCloud") {
+                            SystemSettings.openAppleAccountSettings()
+                        }
+
+                        Text("SleepyBean uses the Apple ID already on this iPhone. There is no separate in-app Apple login.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if SleepyBeanModelContainer.isCloudKitEnabled {
+                        Text("Sleep and feeding data syncs automatically. Use Invite Parent above to share this baby.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+
+                    Button {
+                        backupToiCloud()
+                    } label: {
+                        Label("Back up to iCloud", systemImage: "icloud.and.arrow.up")
+                    }
+                    .disabled(isWorking)
+
+                    Button {
+                        restoreFromiCloud()
+                    } label: {
+                        Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                    }
+                    .disabled(isWorking)
+
+                    if let lastBackupDate = backupService.lastBackupDate {
+                        LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
+                    }
+
+                    Toggle("Auto backup", isOn: $iCloudBackupEnabled)
+
+                    Button {
+                        saveAndExportBackup()
+                    } label: {
+                        Label("Export JSON…", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(isWorking)
+
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("Import JSON…", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(isWorking)
                 }
 
                 Section("Wake Windows") {
@@ -104,59 +155,20 @@ struct SettingsView: View {
                     }
                 }
 
-                if SleepyBeanModelContainer.isCloudKitEnabled {
-                    Section("iCloud Sync") {
-                        Label("Syncing across your devices", systemImage: "icloud.fill")
-                            .foregroundStyle(AppTheme.sleepPurple)
-
-                        Text("Sleep and feeding data syncs automatically when you are signed in to iCloud. Use Family Sharing above to invite your partner.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section(SleepyBeanModelContainer.isCloudKitEnabled ? "Manual Backup" : "iCloud Backup") {
-                    Toggle("Enable backup", isOn: $iCloudBackupEnabled)
-
-                    if iCloudBackupEnabled {
-                        if let lastBackupDate = backupService.lastBackupDate {
-                            LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
-                        }
-
-                        Button {
-                            saveAndExportBackup()
-                        } label: {
-                            Label("Save to iCloud Drive", systemImage: "icloud.and.arrow.up")
-                        }
-                        .disabled(isWorking)
-
-                        Button {
-                            showImportPicker = true
-                        } label: {
-                            Label("Restore from backup", systemImage: "icloud.and.arrow.down")
-                        }
-                        .disabled(isWorking)
-
-                        Text(
-                            SleepyBeanModelContainer.isCloudKitEnabled
-                                ? "Optional JSON export for moving data between accounts or sideload installs."
-                                : "Tap Save, then choose iCloud Drive in Files. SleepyBean also saves a backup automatically when you leave the app."
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-
                 Section("About") {
                     LabeledContent("App", value: "SleepyBean")
                     LabeledContent("Version", value: appVersionString)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            handleVersionTap()
+                        }
                 }
 
                 Section {
                     Text(
                         SleepyBeanModelContainer.isCloudKitEnabled
-                            ? "iCloud sync keeps data up to date on your devices. Partner sharing lets both of you edit the same baby."
-                            : "Data stays on your device. Turn on backup to keep a copy in iCloud Drive."
+                            ? "iCloud sync keeps data up to date on your devices. Invite Parent lets another caregiver edit the same baby."
+                            : "Back up to iCloud to keep a copy you can restore on this phone or another."
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -166,6 +178,25 @@ struct SettingsView: View {
             .onAppear {
                 editName = baby.name
                 editBirthDate = baby.birthDate
+                Task {
+                    await iCloudAccount.refresh()
+                    hasRemoteBackup = await backupService.hasiCloudBackup()
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task {
+                    await iCloudAccount.refresh()
+                    hasRemoteBackup = await backupService.hasiCloudBackup()
+                }
+            }
+            .alert("Clear all logs?", isPresented: $showClearLogsConfirm) {
+                Button("Clear", role: .destructive) {
+                    clearAllLogs()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This deletes every sleep and feeding entry.")
             }
             .alert("Import backup?", isPresented: $showImportRestoreConfirm) {
                 Button("Restore", role: .destructive) {
@@ -191,7 +222,7 @@ struct SettingsView: View {
             ) { result in
                 switch result {
                 case .success:
-                    statusMessage = "Backup saved. Choose iCloud Drive to store it in the cloud."
+                    statusMessage = "JSON exported."
                 case .failure(let error):
                     statusMessage = error.localizedDescription
                 }
@@ -211,6 +242,51 @@ struct SettingsView: View {
         }
     }
 
+    private func handleVersionTap() {
+        versionTapCount += 1
+        if versionTapCount >= 5 {
+            versionTapCount = 0
+            showClearLogsConfirm = true
+            return
+        }
+
+        let taps = versionTapCount
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            if versionTapCount == taps {
+                versionTapCount = 0
+            }
+        }
+    }
+
+    private func clearAllLogs() {
+        do {
+            let sessions = try modelContext.fetch(FetchDescriptor<SleepSession>())
+            for session in sessions {
+                modelContext.delete(session)
+            }
+            let feeds = try modelContext.fetch(FetchDescriptor<FeedEntry>())
+            for feed in feeds {
+                modelContext.delete(feed)
+            }
+            try modelContext.save()
+        } catch {
+            for profile in allBabies {
+                for session in profile.sleepSessions {
+                    modelContext.delete(session)
+                }
+                for feed in profile.feedEntries {
+                    modelContext.delete(feed)
+                }
+            }
+            try? modelContext.save()
+        }
+
+        Task {
+            await TrackingLiveActivityManager.endAll()
+        }
+    }
+
     private func handleLiveActivityToggle(_ enabled: Bool) {
         Task {
             if enabled {
@@ -218,6 +294,38 @@ struct SettingsView: View {
             } else {
                 await TrackingLiveActivityManager.endAll()
             }
+        }
+    }
+
+    private func backupToiCloud() {
+        isWorking = true
+        Task {
+            do {
+                try await backupService.saveToiCloud(context: modelContext)
+                hasRemoteBackup = true
+                let summary = try backupService.lastBackupSummary(context: modelContext)
+                statusMessage = "Backup saved to iCloud (\(summary))."
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
+    private func restoreFromiCloud() {
+        isWorking = true
+        Task {
+            do {
+                try await backupService.restoreFromiCloud(context: modelContext)
+                await TrackingLiveActivityManager.sync(for: baby)
+                let babies = try modelContext.fetch(FetchDescriptor<BabyProfile>())
+                let sessions = try modelContext.fetch(FetchDescriptor<SleepSession>())
+                let feeds = try modelContext.fetch(FetchDescriptor<FeedEntry>())
+                statusMessage = "Restore complete (\(sessions.count) sleep · \(feeds.count) feeds · \(babies.count) babies)."
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+            isWorking = false
         }
     }
 

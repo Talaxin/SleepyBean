@@ -34,36 +34,50 @@ struct StatCard: View {
 struct FeedEntryRow: View {
     let entry: FeedEntry
     var now: Date = Date()
+    @State private var showEdit = false
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.pink.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                Image(systemName: entry.feedSide.icon)
+        Button {
+            showEdit = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.pink.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Text(entry.feedSide == .bottle ? "B" : entry.feedSide.shortLabel)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.pink)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Feed · \(entry.feedSide.rawValue)")
+                        .font(.subheadline.weight(.semibold))
+                    Text(SleepFormatter.formatFeedSummary(entry.timestamp, now: now))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text(entry.formattedTime)
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.pink)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Feed · \(entry.feedSide.rawValue)")
-                    .font(.subheadline.weight(.semibold))
-                Text(SleepFormatter.formatFeedSummary(entry.timestamp, now: now))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Text(entry.formattedTime)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .foregroundStyle(.pink)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(AppTheme.cardBackground)
+            )
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(AppTheme.cardBackground)
-        )
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showEdit) {
+            EditFeedView(entry: entry)
+        }
     }
 }
 
@@ -73,10 +87,7 @@ struct SleepSessionRow: View {
     @State private var showEdit = false
 
     private var displayDuration: String {
-        if session.isActive {
-            return SleepFormatter.formatDuration(now.timeIntervalSince(session.startTime))
-        }
-        return session.formattedDuration
+        SleepFormatter.formatDuration(session.elapsed(at: now))
     }
 
     var body: some View {
@@ -97,12 +108,12 @@ struct SleepSessionRow: View {
                         Text(session.type.rawValue)
                             .font(.subheadline.weight(.semibold))
                         if session.isActive {
-                            Text("LIVE")
+                            Text(session.isPaused ? "PAUSED" : "LIVE")
                                 .font(.caption2.weight(.bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.green)
+                                .background(session.isPaused ? Color.orange : Color.green)
                                 .clipShape(Capsule())
                         }
                     }
@@ -114,9 +125,9 @@ struct SleepSessionRow: View {
                 Spacer()
 
                 Group {
-                    if session.isActive {
+                    if session.isActive && !session.isPaused {
                         TimelineView(.periodic(from: .now, by: 1)) { context in
-                            Text(SleepFormatter.formatDuration(context.date.timeIntervalSince(session.startTime)))
+                            Text(SleepFormatter.formatDuration(session.elapsed(at: context.date)))
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(session.type.accentColor)
                         }

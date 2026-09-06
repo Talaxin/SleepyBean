@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 
 @main
 struct BabySleepTrackerApp: App {

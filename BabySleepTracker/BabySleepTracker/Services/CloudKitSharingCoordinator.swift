@@ -27,8 +27,19 @@ enum BabySharingError: LocalizedError {
 final class CloudKitSharingCoordinator {
     static let shared = CloudKitSharingCoordinator()
 
+    static let hasShareKey = "partner.hasShare"
+    static let isParticipantKey = "partner.isParticipant"
+    static let zoneOwnerKey = "partner.zoneOwner"
+    static let zoneNameKey = "partner.zoneName"
+    static let babyUUIDKey = "partner.babyUUID"
+    static let partnerZoneName = "SleepyBeanPartner"
+    static let babyRecordType = "PartnerBaby"
+    static let sessionRecordType = "PartnerSession"
+    static let feedRecordType = "PartnerFeed"
+
     private var persistentContainer: NSPersistentCloudKitContainer?
     private var storeURL: URL?
+    private var isPushing = false
 
     private init() {}
 
@@ -90,61 +101,42 @@ final class CloudKitSharingCoordinator {
         return shares[managedObject.objectID]
     }
 
+    var hasPartnerShare: Bool {
+        UserDefaults.standard.bool(forKey: Self.hasShareKey)
+    }
+
     func prepareShare(for baby: BabyProfile, modelContext: ModelContext) async throws -> CKShare {
-        guard SleepyBeanModelContainer.isCloudKitEnabled else {
-            throw BabySharingError.cloudKitUnavailable
-        }
-        ensureConfigured()
-        guard let container = persistentContainer else {
-            throw BabySharingError.coordinatorUnavailable
-        }
-        guard let managedObject = managedObject(for: baby, modelContext: modelContext) else {
-            throw BabySharingError.objectNotFound
-        }
+        try modelContext.save()
 
-        if let existingShare = try existingShare(for: baby, modelContext: modelContext) {
-            existingShare[CKShare.SystemFieldKey.title] = "\(baby.name) — SleepyBean" as CKRecordValue
-            return existingShare
-        }
-
-        let babyName = baby.name
-        return try await withCheckedThrowingContinuation { continuation in
-            container.share([managedObject], to: nil) { _, share, _, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-
-                guard let share else {
-                    continuation.resume(throwing: BabySharingError.shareUnavailable)
-                    return
-                }
-
-                share[CKShare.SystemFieldKey.title] = "\(babyName) — SleepyBean" as CKRecordValue
-                continuation.resume(returning: share)
-            }
-        }
+        let share = try await preparePartnerZoneShare(for: baby)
+        markShareActive()
+        await pushPartnerData(for: baby)
+        return share
     }
 
     func acceptShare(metadata: CKShare.Metadata) async throws {
-        ensureConfigured()
-        guard let container = persistentContainer else {
-            throw BabySharingError.coordinatorUnavailable
-        }
-
-        guard let store = container.persistentStoreCoordinator.persistentStores.first else {
-            throw BabySharingError.coordinatorUnavailable
-        }
-
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            container.acceptShareInvitations(from: [metadata], into: store) { _, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+        do {
+            ensureConfigured()
+            if let container = persistentContainer,
+               let store = container.persistentStoreCoordinator.persistentStores.first {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    container.acceptShareInvitations(from: [metadata], into: store) { _, error in
+                        if let error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume()
+                        }
+                    }
                 }
+            } else {
+                _ = try await ckContainer.accept(metadata)
             }
+        } catch {
+            _ = try await ckContainer.accept(metadata)
         }
+
+        rememberAcceptedShare(metadata)
+        NotificationCenter.default.post(name: .sleepyBeanDidReceiveShare, object: nil)
     }
 
     func isShared(_ baby: BabyProfile, modelContext: ModelContext) -> Bool {
@@ -179,6 +171,292 @@ final class CloudKitSharingCoordinator {
         request.fetchLimit = 1
         return try? context.fetch(request).first
     }
+
+    func consumePendingShare(modelContext: ModelContext) async {
+        await pullPartnerData(into: modelContext)
+    }
+
+    func pushPartnerData(for baby: BabyProfile) async {
+        guard hasPartnerShare, !isPushing else { return }
+        isPushing = true
+        defer { isPushing = false }
+
+        do {
+            let zoneID = partnerZoneID
+            let database = partnerDatabase
+            try await ensurePartnerZoneIfOwner()
+
+            var records: [CKRecord] = []
+            let babyRecord = partnerBabyRecord(for: baby, zoneID: zoneID)
+            records.append(babyRecord)
+
+            for session in baby.sleepSessions {
+                records.append(partnerSessionRecord(for: session, baby: baby, babyRecord: babyRecord, zoneID: zoneID))
+            }
+            for feed in baby.feedEntries {
+                records.append(partnerFeedRecord(for: feed, baby: baby, babyRecord: babyRecord, zoneID: zoneID))
+            }
+
+            _ = try await database.modifyRecords(
+                saving: records,
+                deleting: [],
+                savePolicy: .allKeys,
+                atomically: false
+            )
+            UserDefaults.standard.set(baby.id.uuidString, forKey: Self.babyUUIDKey)
+        } catch {
+            print("Partner push failed: \(error.localizedDescription)")
+        }
+    }
+
+    func pullPartnerData(into modelContext: ModelContext) async {
+        guard hasPartnerShare else { return }
+
+        do {
+            let zoneID = partnerZoneID
+            let database = partnerDatabase
+            let records = try await fetchPartnerRecords(from: database, zoneID: zoneID)
+            applyPartnerRecords(records, into: modelContext)
+            try modelContext.save()
+        } catch {
+            print("Partner pull failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func preparePartnerZoneShare(for baby: BabyProfile) async throws -> CKShare {
+        try await ensurePartnerZoneIfOwner()
+        let zoneID = CKRecordZone.ID(zoneName: Self.partnerZoneName, ownerName: CKCurrentUserDefaultName)
+        let babyRecord = partnerBabyRecord(for: baby, zoneID: zoneID)
+
+        if let existingShare = try await existingPartnerShare(for: babyRecord.recordID) {
+            return existingShare
+        }
+
+        let share = CKShare(rootRecord: babyRecord)
+        share.publicPermission = .none
+        share[CKShare.SystemFieldKey.title] = "\(baby.name) — SleepyBean" as CKRecordValue
+
+        let results = try await privateDatabase.modifyRecords(
+            saving: [babyRecord, share],
+            deleting: [],
+            savePolicy: .allKeys,
+            atomically: true
+        )
+
+        UserDefaults.standard.set(false, forKey: Self.isParticipantKey)
+        UserDefaults.standard.set(CKCurrentUserDefaultName, forKey: Self.zoneOwnerKey)
+        UserDefaults.standard.set(Self.partnerZoneName, forKey: Self.zoneNameKey)
+        UserDefaults.standard.set(baby.id.uuidString, forKey: Self.babyUUIDKey)
+
+        for (_, result) in results.saveResults {
+            if case .success(let record) = result, let savedShare = record as? CKShare {
+                return savedShare
+            }
+        }
+
+        throw BabySharingError.shareUnavailable
+    }
+
+    private func existingPartnerShare(for babyRecordID: CKRecord.ID) async throws -> CKShare? {
+        do {
+            let record = try await privateDatabase.record(for: babyRecordID)
+            guard let shareRef = record.share else { return nil }
+            return try await privateDatabase.record(for: shareRef.recordID) as? CKShare
+        } catch {
+            return nil
+        }
+    }
+
+    private func ensurePartnerZoneIfOwner() async throws {
+        guard !UserDefaults.standard.bool(forKey: Self.isParticipantKey) else { return }
+        let zone = CKRecordZone(zoneName: Self.partnerZoneName)
+        do {
+            _ = try await privateDatabase.save(zone)
+        } catch let error as CKError where error.code == .serverRecordChanged {
+            return
+        } catch {
+            let message = error.localizedDescription.lowercased()
+            if message.contains("already") || message.contains("exists") {
+                return
+            }
+            throw error
+        }
+    }
+
+    private func fetchPartnerRecords(from database: CKDatabase, zoneID: CKRecordZone.ID) async throws -> [CKRecord] {
+        var records: [CKRecord] = []
+        for type in [Self.babyRecordType, Self.sessionRecordType, Self.feedRecordType] {
+            let query = CKQuery(recordType: type, predicate: NSPredicate(value: true))
+            let (matchResults, _) = try await database.records(matching: query, inZoneWith: zoneID)
+            for (_, result) in matchResults {
+                if let record = try? result.get() {
+                    records.append(record)
+                }
+            }
+        }
+        return records
+    }
+
+    private func applyPartnerRecords(_ records: [CKRecord], into modelContext: ModelContext) {
+        let babies = (try? modelContext.fetch(FetchDescriptor<BabyProfile>())) ?? []
+        let babyRecords = records.filter { $0.recordType == Self.babyRecordType }
+
+        for record in babyRecords {
+            guard let idString = record["id"] as? String, let id = UUID(uuidString: idString) else { continue }
+            let name = record["name"] as? String ?? "Baby"
+            let birthDate = record["birthDate"] as? Date ?? Date()
+
+            let baby: BabyProfile
+            if let existing = babies.first(where: { $0.id == id }) {
+                baby = existing
+                baby.name = name
+                baby.birthDate = birthDate
+            } else if let existing = babies.first(where: {
+                $0.name.caseInsensitiveCompare(name) == .orderedSame
+                    && Calendar.current.isDate($0.birthDate, inSameDayAs: birthDate)
+            }) {
+                baby = existing
+            } else {
+                baby = BabyProfile(name: name, birthDate: birthDate)
+                baby.id = id
+                modelContext.insert(baby)
+            }
+
+            let sessions = baby.sleepSessions
+            for sessionRecord in records where sessionRecord.recordType == Self.sessionRecordType {
+                guard let sessionIDString = sessionRecord["id"] as? String,
+                      let sessionID = UUID(uuidString: sessionIDString),
+                      let babyIDString = sessionRecord["babyId"] as? String,
+                      babyIDString == id.uuidString
+                else { continue }
+
+                let start = sessionRecord["startTime"] as? Date ?? Date()
+                let end = sessionRecord["endTime"] as? Date
+                let type = SleepType(rawValue: sessionRecord["sleepType"] as? String ?? "") ?? .nap
+                let notes = sessionRecord["notes"] as? String ?? ""
+                let pausedAt = sessionRecord["pausedAt"] as? Date
+                let pauseAccumulated = sessionRecord["pauseAccumulated"] as? Double ?? 0
+
+                if let existing = sessions.first(where: { $0.id == sessionID }) {
+                    existing.startTime = start
+                    existing.endTime = end
+                    existing.sleepType = type.rawValue
+                    existing.notes = notes
+                    existing.pausedAt = pausedAt
+                    existing.pauseAccumulated = pauseAccumulated
+                } else {
+                    let session = SleepSession(startTime: start, endTime: end, sleepType: type, notes: notes)
+                    session.id = sessionID
+                    session.pausedAt = pausedAt
+                    session.pauseAccumulated = pauseAccumulated
+                    session.baby = baby
+                    modelContext.insert(session)
+                }
+            }
+
+            let feeds = baby.feedEntries
+            for feedRecord in records where feedRecord.recordType == Self.feedRecordType {
+                guard let feedIDString = feedRecord["id"] as? String,
+                      let feedID = UUID(uuidString: feedIDString),
+                      let babyIDString = feedRecord["babyId"] as? String,
+                      babyIDString == id.uuidString
+                else { continue }
+
+                let timestamp = feedRecord["timestamp"] as? Date ?? Date()
+                let side = FeedSide(rawValue: feedRecord["side"] as? String ?? "") ?? .left
+
+                if let existing = feeds.first(where: { $0.id == feedID }) {
+                    existing.timestamp = timestamp
+                    existing.side = side.rawValue
+                } else {
+                    let feed = FeedEntry(timestamp: timestamp, side: side)
+                    feed.id = feedID
+                    feed.baby = baby
+                    modelContext.insert(feed)
+                }
+            }
+        }
+    }
+
+    private func partnerBabyRecord(for baby: BabyProfile, zoneID: CKRecordZone.ID) -> CKRecord {
+        let recordID = CKRecord.ID(recordName: "baby-\(baby.id.uuidString)", zoneID: zoneID)
+        let record = CKRecord(recordType: Self.babyRecordType, recordID: recordID)
+        record["id"] = baby.id.uuidString as CKRecordValue
+        record["name"] = baby.name as CKRecordValue
+        record["birthDate"] = baby.birthDate as CKRecordValue
+        return record
+    }
+
+    private func partnerSessionRecord(
+        for session: SleepSession,
+        baby: BabyProfile,
+        babyRecord: CKRecord,
+        zoneID: CKRecordZone.ID
+    ) -> CKRecord {
+        let recordID = CKRecord.ID(recordName: "session-\(session.id.uuidString)", zoneID: zoneID)
+        let record = CKRecord(recordType: Self.sessionRecordType, recordID: recordID)
+        record["id"] = session.id.uuidString as CKRecordValue
+        record["babyId"] = baby.id.uuidString as CKRecordValue
+        record["startTime"] = session.startTime as CKRecordValue
+        if let endTime = session.endTime {
+            record["endTime"] = endTime as CKRecordValue
+        }
+        record["sleepType"] = session.sleepType as CKRecordValue
+        record["notes"] = session.notes as CKRecordValue
+        if let pausedAt = session.pausedAt {
+            record["pausedAt"] = pausedAt as CKRecordValue
+        }
+        record["pauseAccumulated"] = session.pauseAccumulated as CKRecordValue
+        record.setParent(babyRecord)
+        return record
+    }
+
+    private func partnerFeedRecord(
+        for feed: FeedEntry,
+        baby: BabyProfile,
+        babyRecord: CKRecord,
+        zoneID: CKRecordZone.ID
+    ) -> CKRecord {
+        let recordID = CKRecord.ID(recordName: "feed-\(feed.id.uuidString)", zoneID: zoneID)
+        let record = CKRecord(recordType: Self.feedRecordType, recordID: recordID)
+        record["id"] = feed.id.uuidString as CKRecordValue
+        record["babyId"] = baby.id.uuidString as CKRecordValue
+        record["timestamp"] = feed.timestamp as CKRecordValue
+        record["side"] = feed.side as CKRecordValue
+        record.setParent(babyRecord)
+        return record
+    }
+
+    private var privateDatabase: CKDatabase {
+        ckContainer.privateCloudDatabase
+    }
+
+    private var partnerDatabase: CKDatabase {
+        UserDefaults.standard.bool(forKey: Self.isParticipantKey)
+            ? ckContainer.sharedCloudDatabase
+            : ckContainer.privateCloudDatabase
+    }
+
+    private var partnerZoneID: CKRecordZone.ID {
+        let zoneName = UserDefaults.standard.string(forKey: Self.zoneNameKey) ?? Self.partnerZoneName
+        let owner = UserDefaults.standard.string(forKey: Self.zoneOwnerKey) ?? CKCurrentUserDefaultName
+        return CKRecordZone.ID(zoneName: zoneName, ownerName: owner)
+    }
+
+    private func markShareActive() {
+        UserDefaults.standard.set(true, forKey: Self.hasShareKey)
+    }
+
+    private func rememberAcceptedShare(_ metadata: CKShare.Metadata) {
+        markShareActive()
+        UserDefaults.standard.set(true, forKey: Self.isParticipantKey)
+        UserDefaults.standard.set(metadata.share.recordID.zoneID.ownerName, forKey: Self.zoneOwnerKey)
+        UserDefaults.standard.set(metadata.share.recordID.zoneID.zoneName, forKey: Self.zoneNameKey)
+    }
+}
+
+extension Notification.Name {
+    static let sleepyBeanDidReceiveShare = Notification.Name("sleepyBeanDidReceiveShare")
 }
 
 private extension ModelContext {

@@ -17,11 +17,22 @@ struct HomeView: View {
         TrackingMode(rawValue: trackingModeRaw) ?? .daytime
     }
 
-    private var todaySessions: [SleepSession] {
-        let calendar = Calendar.current
-        return baby.sleepSessions
-            .filter { calendar.isDate($0.startTime, inSameDayAs: Date()) }
-            .sorted { $0.startTime > $1.startTime }
+    private var activeNightSleep: SleepSession? {
+        baby.sleepSessions
+            .filter { $0.isActive && $0.type == .night }
+            .min(by: { $0.startTime < $1.startTime })
+    }
+
+    private var activeAwake: SleepSession? {
+        baby.sleepSessions.first { $0.isActive && $0.type == .awake }
+    }
+
+    private var activeNap: SleepSession? {
+        baby.sleepSessions.first { $0.isActive && $0.type == .nap }
+    }
+
+    private var buttonSession: SleepSession? {
+        trackingMode == .nighttime ? activeAwake : activeNap
     }
 
     private var todayFeeds: [FeedEntry] {
@@ -37,8 +48,13 @@ struct HomeView: View {
         return (sessions + feeds).sorted { $0.sortDate > $1.sortDate }
     }
 
-    private var activeSession: SleepSession? {
-        baby.sleepSessions.first { $0.isActive }
+    private var todaySessions: [SleepSession] {
+        let calendar = Calendar.current
+        return baby.sleepSessions
+            .filter { session in
+                session.isActive || calendar.isDate(session.startTime, inSameDayAs: Date())
+            }
+            .sorted { $0.startTime > $1.startTime }
     }
 
     private var lastCompletedSession: SleepSession? {
@@ -54,7 +70,7 @@ struct HomeView: View {
 
     private var napReadiness: WakeWindowCalculator.NapReadiness {
         WakeWindowCalculator.napReadiness(
-            activeSession: activeSession?.type == .awake ? nil : activeSession,
+            activeSession: activeNap,
             lastCompletedSession: lastCompletedSession,
             ageInMonths: baby.ageInMonths
         )
@@ -148,6 +164,10 @@ struct HomeView: View {
         }
     }
 
+    private var dayAwakeAnchor: Date? {
+        lastCompletedSession?.endTime
+    }
+
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -158,8 +178,22 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            if let activeSession {
-                LiveBadge(sessionType: activeSession.type, startTime: activeSession.startTime)
+            if trackingMode == .nighttime, let night = activeNightSleep {
+                LiveBadge(
+                    sessionType: .night,
+                    startTime: night.startTime,
+                    isPaused: night.isPaused,
+                    pausedAt: night.pausedAt,
+                    pauseAccumulated: night.pauseAccumulated
+                )
+            } else if trackingMode == .daytime, let anchor = dayAwakeAnchor {
+                LiveBadge(
+                    sessionType: .awake,
+                    startTime: anchor,
+                    isPaused: activeNap != nil,
+                    pausedAt: activeNap?.startTime,
+                    pauseAccumulated: 0
+                )
             } else {
                 ModeBadge(mode: trackingMode)
             }
@@ -180,12 +214,12 @@ struct HomeView: View {
     private var trackingTimerSection: some View {
         TrackingTimerCard(
             mode: trackingMode,
-            isTracking: activeSession != nil,
-            startTime: activeSession?.startTime,
-            trackedType: activeSession?.type,
-            canToggleMode: activeSession == nil,
+            isTracking: buttonSession != nil,
+            startTime: buttonSession?.startTime,
+            trackedType: buttonSession?.type,
+            canToggleMode: true,
             onMainTap: handleMainButtonTap,
-            onModeToggle: toggleTrackingMode
+            onModeToggle: logNightOrDay
         )
     }
 
@@ -196,9 +230,7 @@ struct HomeView: View {
     }
 
     private var buildFooter: some View {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-        return Text("SleepyBean \(version) (\(build))")
+        Text("SleepyBean \(AppPreferences.displayVersion)")
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity)
@@ -259,45 +291,87 @@ struct HomeView: View {
     }
 
     private func handleMainButtonTap() {
-        if let active = activeSession {
-            sessionPendingStop = active
+        if trackingMode == .nighttime {
+            if let awake = activeAwake {
+                sessionPendingStop = awake
+                showStopConfirmation = true
+            } else {
+                activeNightSleep?.pause()
+                startTracking(for: .awake)
+            }
+            return
+        }
+
+        if let nap = activeNap {
+            sessionPendingStop = nap
             showStopConfirmation = true
         } else {
-            startTracking(for: trackingMode.primarySessionType)
+            startTracking(for: .nap)
         }
     }
 
-    private func toggleTrackingMode() {
-        guard activeSession == nil else { return }
-        trackingModeRaw = (trackingMode == .daytime ? TrackingMode.nighttime : .daytime).rawValue
+    private func logNightOrDay() {
+        let now = Date()
+
+        if trackingMode == .daytime {
+            activeNap?.endTime = now
+            activeAwake?.endTime = now
+            trackingModeRaw = TrackingMode.nighttime.rawValue
+            if activeNightSleep == nil {
+                startTracking(for: .night)
+            } else {
+                persistAndSync()
+            }
+            return
+        }
+
+        activeAwake?.endTime = now
+        activeNap?.endTime = now
+        if let night = activeNightSleep {
+            night.endTime = now
+            night.pausedAt = nil
+        }
+        trackingModeRaw = TrackingMode.daytime.rawValue
+        persistAndSync()
     }
 
     private func startTracking(for type: SleepType) {
         let session = SleepSession(startTime: Date(), sleepType: type)
         session.baby = baby
         modelContext.insert(session)
-        Task {
-            await TrackingLiveActivityManager.sync(for: baby)
+        if !baby.sleepSessions.contains(where: { $0.id == session.id }) {
+            baby.sleepSessions.append(session)
         }
+        persistAndSync()
     }
 
     private func endSession(_ session: SleepSession) {
         session.endTime = Date()
-        Task {
-            await TrackingLiveActivityManager.sync(for: baby)
+        if session.type == .awake {
+            activeNightSleep?.resume()
         }
+        persistAndSync()
     }
 
     private func logFeed(_ side: FeedSide) {
         let entry = FeedEntry(side: side)
         entry.baby = baby
         modelContext.insert(entry)
+        persistAndSync(liveActivity: false)
     }
 
     private func deleteSession(_ session: SleepSession) {
         modelContext.delete(session)
+        persistAndSync()
+    }
+
+    private func persistAndSync(liveActivity: Bool = true) {
+        try? modelContext.save()
         Task {
-            await TrackingLiveActivityManager.sync(for: baby)
+            if liveActivity {
+                await TrackingLiveActivityManager.sync(for: baby)
+            }
+            await CloudKitSharingCoordinator.shared.pushPartnerData(for: baby)
         }
     }
 
@@ -363,6 +437,9 @@ struct DaySleepStats {
 struct LiveBadge: View {
     let sessionType: SleepType
     let startTime: Date
+    var isPaused: Bool = false
+    var pausedAt: Date? = nil
+    var pauseAccumulated: TimeInterval = 0
 
     @State private var pulsing = false
 
@@ -379,19 +456,21 @@ struct LiveBadge: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let elapsed = SleepFormatter.formatDuration(context.date.timeIntervalSince(startTime))
+        TimelineView(.periodic(from: .now, by: isPaused ? 3600 : 1)) { context in
+            let end = pausedAt ?? context.date
+            let elapsed = max(0, end.timeIntervalSince(startTime) - pauseAccumulated)
 
             HStack(spacing: 6) {
                 Circle()
                     .fill(color)
                     .frame(width: 8, height: 8)
-                    .scaleEffect(pulsing ? 1.3 : 1.0)
+                    .scaleEffect(pulsing && !isPaused ? 1.3 : 1.0)
+                    .opacity(isPaused ? 0.45 : 1)
                 VStack(alignment: .trailing, spacing: 0) {
-                    Text(label)
+                    Text(isPaused ? "Paused" : label)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(color)
-                    Text(elapsed)
+                    Text(SleepFormatter.formatDuration(elapsed))
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }

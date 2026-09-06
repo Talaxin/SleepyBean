@@ -15,7 +15,21 @@ enum AppPreferences {
     }
 
     static var iCloudBackupEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: iCloudBackupEnabledKey) }
+        get {
+            if UserDefaults.standard.object(forKey: iCloudBackupEnabledKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: iCloudBackupEnabledKey)
+        }
         set { UserDefaults.standard.set(newValue, forKey: iCloudBackupEnabledKey) }
+    }
+
+    static var displayVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        if build.isEmpty || version == build || version.hasSuffix(".\(build)") {
+            return version
+        }
+        return "\(version) (\(build))"
     }
 }

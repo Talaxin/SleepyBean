@@ -8,44 +8,22 @@ enum TrackingLiveActivityManager {
     }
 
     static func sync(for baby: BabyProfile) async {
-        let activeSession = baby.sleepSessions.first(where: \.isActive)
-        await syncActiveSession(babyName: baby.name, session: activeSession)
+        await present(babyName: baby.name, session: liveSession(for: baby))
+    }
+
+    static func liveSession(for baby: BabyProfile) -> SleepSession? {
+        switch trackingMode {
+        case .daytime:
+            return baby.sleepSessions.first { $0.isActive && $0.type == .nap }
+        case .nighttime:
+            return baby.sleepSessions
+                .filter { $0.isActive && $0.type == .night }
+                .min(by: { $0.startTime < $1.startTime })
+        }
     }
 
     static func syncActiveSession(babyName: String, session: SleepSession?) async {
-        await endAll()
-
-        guard AppPreferences.liveActivitiesEnabled else { return }
-        guard let session, session.isActive else { return }
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            print("Live Activities disabled in system settings")
-            return
-        }
-
-        let attributes = TrackingActivityAttributes(
-            babyName: babyName,
-            sessionType: session.type.rawValue,
-            startTime: session.startTime
-        )
-        let state = TrackingActivityAttributes.ContentState(
-            statusLabel: statusLabel(for: session.type)
-        )
-
-        do {
-            _ = try Activity.request(
-                attributes: attributes,
-                content: ActivityContent(state: state, staleDate: nil),
-                pushType: nil
-            )
-        } catch {
-            print("Live Activity start failed: \(error.localizedDescription)")
-        }
-    }
-
-    static func endAll() async {
-        for activity in Activity<TrackingActivityAttributes>.activities {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
+        await present(babyName: babyName, session: session)
     }
 
     static func start(
@@ -54,7 +32,7 @@ enum TrackingLiveActivityManager {
         startTime: Date = Date()
     ) {
         Task {
-            await syncActiveSession(
+            await present(
                 babyName: babyName,
                 session: SleepSession(startTime: startTime, sleepType: sessionType)
             )
@@ -69,15 +47,79 @@ enum TrackingLiveActivityManager {
 
     static func restoreIfNeeded(for session: SleepSession, babyName: String) {
         Task {
-            await syncActiveSession(babyName: babyName, session: session)
+            await present(babyName: babyName, session: session)
         }
     }
 
-    private static func statusLabel(for type: SleepType) -> String {
-        switch type {
+    static func endAll() async {
+        for activity in Activity<TrackingActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    private static var trackingMode: TrackingMode {
+        TrackingMode(rawValue: UserDefaults.standard.string(forKey: "trackingMode") ?? "") ?? .daytime
+    }
+
+    private static func present(babyName: String, session: SleepSession?) async {
+        guard AppPreferences.liveActivitiesEnabled else {
+            await endAll()
+            return
+        }
+
+        guard let session, session.isActive else {
+            await endAll()
+            return
+        }
+
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            print("Live Activities disabled in system settings")
+            return
+        }
+
+        let state = contentState(for: session)
+        let sessionType = session.type.rawValue
+
+        if let existing = Activity<TrackingActivityAttributes>.activities.first {
+            if existing.attributes.sessionType == sessionType {
+                await existing.update(ActivityContent(state: state, staleDate: nil))
+                return
+            }
+            await existing.end(nil, dismissalPolicy: .immediate)
+        }
+
+        let attributes = TrackingActivityAttributes(
+            babyName: babyName,
+            sessionType: sessionType,
+            startTime: session.startTime
+        )
+
+        do {
+            _ = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: state, staleDate: nil),
+                pushType: nil
+            )
+        } catch {
+            print("Live Activity start failed: \(error.localizedDescription)")
+        }
+    }
+
+    private static func contentState(for session: SleepSession) -> TrackingActivityAttributes.ContentState {
+        let elapsed = session.elapsed
+        return TrackingActivityAttributes.ContentState(
+            statusLabel: statusLabel(for: session),
+            timerStart: session.startTime.addingTimeInterval(session.pauseAccumulated),
+            isPaused: session.isPaused,
+            frozenDuration: elapsed
+        )
+    }
+
+    private static func statusLabel(for session: SleepSession) -> String {
+        switch session.type {
         case .nap: return "Napping"
         case .awake: return "Awake"
-        case .night: return "Sleeping"
+        case .night: return session.isPaused ? "Sleeping" : "Sleeping"
         }
     }
 }

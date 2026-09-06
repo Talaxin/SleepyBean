@@ -27,17 +27,30 @@ struct ContentView: View {
                 selectedBaby = babies.first
             }
             syncLiveActivities()
+            Task {
+                BabyProfile.mergeDuplicates(in: modelContext, babies: babies)
+                selectedBaby = babies.first
+                await CloudKitSharingCoordinator.shared.consumePendingShare(modelContext: modelContext)
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
                 syncLiveActivities()
+                Task {
+                    await CloudKitSharingCoordinator.shared.pullPartnerData(into: modelContext)
+                }
             case .background:
                 Task {
                     await iCloudBackupService.shared.backupIfPossible(context: modelContext)
                 }
             default:
                 break
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidReceiveShare)) { _ in
+            Task {
+                await CloudKitSharingCoordinator.shared.pullPartnerData(into: modelContext)
             }
         }
     }

@@ -178,6 +178,66 @@ struct EditSleepView: View {
     }
 }
 
+struct EditFeedView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    @Bindable var entry: FeedEntry
+
+    @State private var timestamp: Date
+    @State private var side: FeedSide
+
+    init(entry: FeedEntry) {
+        self.entry = entry
+        _timestamp = State(initialValue: entry.timestamp)
+        _side = State(initialValue: entry.feedSide)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Side") {
+                    Picker("Side", selection: $side) {
+                        ForEach(FeedSide.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                }
+
+                Section("Time") {
+                    DatePicker("Start", selection: $timestamp, in: ...Date(), displayedComponents: [.date, .hourAndMinute])
+                }
+
+                Section {
+                    Button("Delete Entry", role: .destructive) {
+                        modelContext.delete(entry)
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle("Edit Feed")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        entry.timestamp = timestamp
+                        entry.feedSide = side
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     let baby = BabyProfile(name: "Test", birthDate: Date())
     return AddSleepView(baby: baby)

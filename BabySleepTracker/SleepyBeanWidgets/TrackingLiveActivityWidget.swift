@@ -10,17 +10,17 @@ struct TrackingLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(context.attributes.babyName)
                             .font(.headline)
+                            .lineLimit(1)
                         Text(context.state.statusLabel)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    timerText(for: context.attributes.startTime)
-                        .font(.title3.bold().monospacedDigit())
+                    timerView(context: context, font: .title3.bold().monospacedDigit())
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
@@ -33,13 +33,21 @@ struct TrackingLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 Image(systemName: TrackingActivityIcon.systemName(for: context.attributes.sessionType))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(accentColor(for: context.attributes.sessionType))
+                    .frame(width: 18, height: 18)
+                    .fixedSize()
             } compactTrailing: {
-                timerText(for: context.attributes.startTime)
-                    .font(.caption.bold().monospacedDigit())
+                timerView(context: context, font: .caption2.bold().monospacedDigit())
+                    .frame(width: 40, alignment: .trailing)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .fixedSize()
             } minimal: {
                 Image(systemName: TrackingActivityIcon.systemName(for: context.attributes.sessionType))
+                    .foregroundStyle(accentColor(for: context.attributes.sessionType))
             }
+            .keylineTint(accentColor(for: context.attributes.sessionType))
         }
     }
 
@@ -64,15 +72,29 @@ struct TrackingLiveActivityWidget: Widget {
 
             Spacer()
 
-            timerText(for: context.attributes.startTime)
-                .font(.title2.bold().monospacedDigit())
+            timerView(context: context, font: .title2.bold().monospacedDigit())
                 .multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 4)
     }
 
-    private func timerText(for startTime: Date) -> Text {
-        Text(startTime, style: .timer)
+    @ViewBuilder
+    private func timerView(
+        context: ActivityViewContext<TrackingActivityAttributes>,
+        font: Font
+    ) -> some View {
+        let start = context.state.timerStart ?? context.attributes.startTime
+        if context.state.isPaused {
+            Text(TrackingActivityFormatting.duration(context.state.frozenDuration))
+                .font(font)
+                .monospacedDigit()
+        } else {
+            Text(timerInterval: start...Date.distantFuture, countsDown: false)
+                .font(font)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
     }
 
     private func accentColor(for sessionType: String) -> Color {

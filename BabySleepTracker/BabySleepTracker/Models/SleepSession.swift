@@ -64,6 +64,8 @@ final class SleepSession {
     var endTime: Date?
     var sleepType: String = SleepType.nap.rawValue
     var notes: String = ""
+    var pausedAt: Date?
+    var pauseAccumulated: TimeInterval = 0
 
     var baby: BabyProfile?
 
@@ -84,14 +86,42 @@ final class SleepSession {
         endTime == nil
     }
 
+    var isPaused: Bool {
+        pausedAt != nil && endTime == nil
+    }
+
     var duration: TimeInterval? {
         guard let end = endTime else { return nil }
-        return end.timeIntervalSince(startTime)
+        return max(0, end.timeIntervalSince(startTime) - pauseAccumulated)
     }
 
     var elapsed: TimeInterval {
-        let end = endTime ?? Date()
-        return end.timeIntervalSince(startTime)
+        elapsed(at: Date())
+    }
+
+    func elapsed(at date: Date) -> TimeInterval {
+        let end = endTime ?? pausedAt ?? date
+        return max(0, end.timeIntervalSince(startTime) - pauseAccumulated)
+    }
+
+    func pause(at date: Date = Date()) {
+        guard isActive, pausedAt == nil else { return }
+        pausedAt = date
+    }
+
+    func resume() {
+        guard let pausedAt else { return }
+        pauseAccumulated += Date().timeIntervalSince(pausedAt)
+        self.pausedAt = nil
+    }
+
+    func finish(at date: Date = Date()) {
+        if let pausedAt {
+            endTime = pausedAt
+            self.pausedAt = nil
+        } else {
+            endTime = date
+        }
     }
 
     var formattedDuration: String {
