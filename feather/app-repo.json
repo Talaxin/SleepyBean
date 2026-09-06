@@ -16,6 +16,15 @@
       "category": "lifestyle",
       "versions": [
         {
+          "version": "1.4.1.20.21",
+          "buildVersion": "21",
+          "date": "2026-09-06T01:29:13-07:00",
+          "localizedDescription": "SleepyBean 1.4.1.20.21 \u2014 feeding, day/night modes, wake windows.",
+          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.4.1.20.21/SleepyBean.ipa",
+          "size": 2670774,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.4.1.20",
           "buildVersion": "20",
           "date": "2026-09-05T21:55:17-07:00",
@@ -50,25 +59,16 @@
           "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.15/SleepyBean.ipa",
           "size": 2545312,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.2.13",
-          "buildVersion": "13",
-          "date": "2026-09-06T02:24:03Z",
-          "localizedDescription": "SleepyBean 1.2.13 \u2014 feeding, day/night modes, wake windows.",
-          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.13/SleepyBean.ipa",
-          "size": 2530235,
-          "minOSVersion": "17.0"
         }
       ],
       "appPermissions": {
         "entitlements": [],
         "privacy": {}
       },
-      "version": "1.4.1.20",
-      "versionDate": "2026-09-05T21:55:17-07:00",
-      "size": 2566296,
-      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.4.1.20/SleepyBean.ipa"
+      "version": "1.4.1.20.21",
+      "versionDate": "2026-09-06T01:29:13-07:00",
+      "size": 2670774,
+      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.4.1.20.21/SleepyBean.ipa"
     }
   ],
   "news": [
