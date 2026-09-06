@@ -7,7 +7,9 @@ struct ShareBabyView: UIViewControllerRepresentable {
     let container: CKContainer
 
     func makeUIViewController(context: Context) -> UICloudSharingController {
-        UICloudSharingController(share: share, container: container, delegate: context.coordinator)
+        let controller = UICloudSharingController(share: share, container: container)
+        controller.delegate = context.coordinator
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: UICloudSharingController, context: Context) {}
