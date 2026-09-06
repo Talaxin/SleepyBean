@@ -141,8 +141,8 @@ struct HomeView: View {
                 liveNow = date
             }
             .onAppear {
-                if let active = activeSession {
-                    TrackingLiveActivityManager.restoreIfNeeded(for: active, babyName: baby.name)
+                Task {
+                    await TrackingLiveActivityManager.sync(for: baby)
                 }
             }
         }
@@ -276,12 +276,16 @@ struct HomeView: View {
         let session = SleepSession(startTime: Date(), sleepType: type)
         session.baby = baby
         modelContext.insert(session)
-        TrackingLiveActivityManager.start(babyName: baby.name, sessionType: type, startTime: session.startTime)
+        Task {
+            await TrackingLiveActivityManager.sync(for: baby)
+        }
     }
 
     private func endSession(_ session: SleepSession) {
         session.endTime = Date()
-        TrackingLiveActivityManager.end()
+        Task {
+            await TrackingLiveActivityManager.sync(for: baby)
+        }
     }
 
     private func logFeed(_ side: FeedSide) {
@@ -291,10 +295,10 @@ struct HomeView: View {
     }
 
     private func deleteSession(_ session: SleepSession) {
-        if session.isActive {
-            TrackingLiveActivityManager.end()
-        }
         modelContext.delete(session)
+        Task {
+            await TrackingLiveActivityManager.sync(for: baby)
+        }
     }
 
     private func deleteFeed(_ entry: FeedEntry) {

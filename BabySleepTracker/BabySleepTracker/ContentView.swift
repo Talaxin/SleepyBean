@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \BabyProfile.createdAt) private var babies: [BabyProfile]
     @State private var selectedBaby: BabyProfile?
     @State private var showOnboarding = false
@@ -25,6 +26,26 @@ struct ContentView: View {
             } else {
                 selectedBaby = babies.first
             }
+            syncLiveActivities()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                syncLiveActivities()
+            case .background:
+                Task {
+                    await iCloudBackupService.shared.backupIfPossible(context: modelContext)
+                }
+            default:
+                break
+            }
+        }
+    }
+
+    private func syncLiveActivities() {
+        guard let baby = selectedBaby ?? babies.first else { return }
+        Task {
+            await TrackingLiveActivityManager.sync(for: baby)
         }
     }
 }

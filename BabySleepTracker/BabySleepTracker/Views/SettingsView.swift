@@ -9,6 +9,11 @@ struct SettingsView: View {
     @State private var showAddBaby = false
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
+    @State private var showRestoreConfirm = false
+    @State private var statusMessage: String?
+    @State private var isWorking = false
+
+    private let backupService = iCloudBackupService.shared
 
     private var appVersionString: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -64,13 +69,53 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Live Activity") {
+                    LabeledContent("Lock screen timer") {
+                        Text(TrackingLiveActivityManager.isSupported ? "Enabled" : "Disabled in Settings")
+                            .foregroundStyle(TrackingLiveActivityManager.isSupported ? .green : .secondary)
+                    }
+
+                    Text("Start a nap or sleep timer to show the live counter on your lock screen and Dynamic Island.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("iCloud Backup") {
+                    LabeledContent("iCloud") {
+                        Text(backupService.isSignedInToiCloud ? "Connected" : "Not signed in")
+                            .foregroundStyle(backupService.isSignedInToiCloud ? .green : .secondary)
+                    }
+
+                    if let lastBackupDate = backupService.lastBackupDate {
+                        LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
+                    }
+
+                    Button {
+                        performBackup()
+                    } label: {
+                        Label("Back Up Now", systemImage: "icloud.and.arrow.up")
+                    }
+                    .disabled(isWorking || !backupService.isSignedInToiCloud)
+
+                    Button {
+                        showRestoreConfirm = true
+                    } label: {
+                        Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                    }
+                    .disabled(isWorking || !backupService.isSignedInToiCloud)
+
+                    Text("Backs up babies, sleep logs, and feeds to your private iCloud Drive. SleepyBean also backs up automatically when you leave the app.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("About") {
                     LabeledContent("App", value: "SleepyBean")
                     LabeledContent("Version", value: appVersionString)
                 }
 
                 Section {
-                    Text("All data stays on your device. No accounts, no cloud sync.")
+                    Text("Data is stored on your device. Use iCloud Backup above to sync between devices signed into the same Apple ID.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -80,12 +125,55 @@ struct SettingsView: View {
                 editName = baby.name
                 editBirthDate = baby.birthDate
             }
+            .alert("Restore from iCloud?", isPresented: $showRestoreConfirm) {
+                Button("Restore", role: .destructive) {
+                    performRestore()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This replaces all sleep and feeding data on this device with your latest iCloud backup.")
+            }
+            .alert("iCloud", isPresented: Binding(
+                get: { statusMessage != nil },
+                set: { if !$0 { statusMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(statusMessage ?? "")
+            }
             .sheet(isPresented: $showAddBaby) {
                 AddBabySheet { name, birthDate in
                     let newBaby = BabyProfile(name: name, birthDate: birthDate)
                     modelContext.insert(newBaby)
                 }
             }
+        }
+    }
+
+    private func performBackup() {
+        isWorking = true
+        Task {
+            do {
+                try await backupService.backup(context: modelContext)
+                statusMessage = "Backup saved to iCloud."
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
+    private func performRestore() {
+        isWorking = true
+        Task {
+            do {
+                try await backupService.restore(context: modelContext)
+                await TrackingLiveActivityManager.sync(for: baby)
+                statusMessage = "Restore complete."
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+            isWorking = false
         }
     }
 }

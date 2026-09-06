@@ -75,6 +75,11 @@ struct AddSleepView: View {
         )
         session.baby = baby
         modelContext.insert(session)
+        if isOngoing {
+            Task {
+                await TrackingLiveActivityManager.sync(for: baby)
+            }
+        }
         dismiss()
     }
 }
@@ -130,7 +135,17 @@ struct EditSleepView: View {
 
                 Section {
                     Button("Delete Entry", role: .destructive) {
+                        let baby = session.baby
                         modelContext.delete(session)
+                        if let baby {
+                            Task {
+                                await TrackingLiveActivityManager.sync(for: baby)
+                            }
+                        } else {
+                            Task {
+                                await TrackingLiveActivityManager.endAll()
+                            }
+                        }
                         dismiss()
                     }
                 }
@@ -154,6 +169,11 @@ struct EditSleepView: View {
         session.endTime = isOngoing ? nil : endTime
         session.type = sleepType
         session.notes = notes
+        if let baby = session.baby {
+            Task {
+                await TrackingLiveActivityManager.sync(for: baby)
+            }
+        }
         dismiss()
     }
 }

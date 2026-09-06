@@ -3,34 +3,37 @@ import Foundation
 
 @MainActor
 enum TrackingLiveActivityManager {
-    private static var currentActivity: Activity<TrackingActivityAttributes>?
-
     static var isSupported: Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    static func start(
-        babyName: String,
-        sessionType: SleepType,
-        startTime: Date = Date()
-    ) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    static func sync(for baby: BabyProfile) async {
+        let activeSession = baby.sleepSessions.first(where: \.isActive)
+        await syncActiveSession(babyName: baby.name, session: activeSession)
+    }
 
-        end()
+    static func syncActiveSession(babyName: String, session: SleepSession?) async {
+        await endAll()
+
+        guard let session, session.isActive else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            print("Live Activities disabled in system settings")
+            return
+        }
 
         let attributes = TrackingActivityAttributes(
             babyName: babyName,
-            sessionType: sessionType.rawValue,
-            startTime: startTime
+            sessionType: session.type.rawValue,
+            startTime: session.startTime
         )
         let state = TrackingActivityAttributes.ContentState(
-            statusLabel: statusLabel(for: sessionType)
+            statusLabel: statusLabel(for: session.type)
         )
 
         do {
-            currentActivity = try Activity.request(
+            _ = try Activity.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: nil),
+                content: ActivityContent(state: state, staleDate: nil),
                 pushType: nil
             )
         } catch {
@@ -38,19 +41,34 @@ enum TrackingLiveActivityManager {
         }
     }
 
-    static func end() {
-        guard let activity = currentActivity else { return }
-        currentActivity = nil
-
-        Task {
+    static func endAll() async {
+        for activity in Activity<TrackingActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
 
+    static func start(
+        babyName: String,
+        sessionType: SleepType,
+        startTime: Date = Date()
+    ) {
+        Task {
+            await syncActiveSession(
+                babyName: babyName,
+                session: SleepSession(startTime: startTime, sleepType: sessionType)
+            )
+        }
+    }
+
+    static func end() {
+        Task {
+            await endAll()
+        }
+    }
+
     static func restoreIfNeeded(for session: SleepSession, babyName: String) {
-        guard session.isActive else { return }
-        if currentActivity == nil {
-            start(babyName: babyName, sessionType: session.type, startTime: session.startTime)
+        Task {
+            await syncActiveSession(babyName: babyName, session: session)
         }
     }
 
