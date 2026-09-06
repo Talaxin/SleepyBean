@@ -105,13 +105,109 @@ final class CloudKitSharingCoordinator {
         UserDefaults.standard.bool(forKey: Self.hasShareKey)
     }
 
+    static let sharedWithNameKey = "partner.sharedWithName"
+
+    var cachedSharedWithName: String? {
+        let value = UserDefaults.standard.string(forKey: Self.sharedWithNameKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value?.isEmpty == false) ? value : nil
+    }
+
     func prepareShare(for baby: BabyProfile, modelContext: ModelContext) async throws -> CKShare {
         try modelContext.save()
 
         let share = try await preparePartnerZoneShare(for: baby)
         markShareActive()
+        cacheParticipantNames(from: share)
         await pushPartnerData(for: baby)
         return share
+    }
+
+    func currentShare(for baby: BabyProfile) async -> CKShare? {
+        let zoneID = CKRecordZone.ID(zoneName: Self.partnerZoneName, ownerName: CKCurrentUserDefaultName)
+        let babyRecordID = CKRecord.ID(recordName: "baby-\(baby.id.uuidString)", zoneID: zoneID)
+        if let share = try? await existingPartnerShare(for: babyRecordID) {
+            cacheParticipantNames(from: share)
+            return share
+        }
+        return nil
+    }
+
+    func sharedWithDisplayName(for baby: BabyProfile) async -> String? {
+        if let share = await currentShare(for: baby) {
+            let names = participantNames(from: share)
+            if !names.isEmpty {
+                let joined = names.joined(separator: ", ")
+                UserDefaults.standard.set(joined, forKey: Self.sharedWithNameKey)
+                return joined
+            }
+        }
+        return cachedSharedWithName
+    }
+
+    func stopSharing(for baby: BabyProfile) async throws {
+        let isParticipant = UserDefaults.standard.bool(forKey: Self.isParticipantKey)
+
+        if isParticipant {
+            // Leave the shared zone by deleting the share from the shared database when possible.
+            let zoneID = partnerZoneID
+            let babyRecordID = CKRecord.ID(recordName: "baby-\(baby.id.uuidString)", zoneID: zoneID)
+            if let record = try? await partnerDatabase.record(for: babyRecordID),
+               let shareRef = record.share {
+                _ = try await partnerDatabase.modifyRecords(
+                    saving: [],
+                    deleting: [shareRef.recordID],
+                    savePolicy: .allKeys,
+                    atomically: false
+                )
+            }
+        } else if let share = await currentShare(for: baby) {
+            _ = try await privateDatabase.modifyRecords(
+                saving: [],
+                deleting: [share.recordID],
+                savePolicy: .allKeys,
+                atomically: false
+            )
+        }
+
+        clearShareState()
+    }
+
+    func cacheParticipantNames(from share: CKShare) {
+        let names = participantNames(from: share)
+        if names.isEmpty {
+            return
+        }
+        UserDefaults.standard.set(names.joined(separator: ", "), forKey: Self.sharedWithNameKey)
+        markShareActive()
+    }
+
+    private func participantNames(from share: CKShare) -> [String] {
+        let formatter = PersonNameComponentsFormatter()
+        return share.participants.compactMap { participant -> String? in
+            guard participant.role != .owner else { return nil }
+            if let components = participant.userIdentity.nameComponents {
+                let formatted = formatter.string(from: components)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !formatted.isEmpty { return formatted }
+            }
+            if let email = participant.userIdentity.lookupInfo?.emailAddress, !email.isEmpty {
+                return email
+            }
+            if let phone = participant.userIdentity.lookupInfo?.phoneNumber, !phone.isEmpty {
+                return phone
+            }
+            return nil
+        }
+    }
+
+    private func clearShareState() {
+        UserDefaults.standard.set(false, forKey: Self.hasShareKey)
+        UserDefaults.standard.set(false, forKey: Self.isParticipantKey)
+        UserDefaults.standard.removeObject(forKey: Self.sharedWithNameKey)
+        UserDefaults.standard.removeObject(forKey: Self.zoneOwnerKey)
+        UserDefaults.standard.removeObject(forKey: Self.zoneNameKey)
+        UserDefaults.standard.removeObject(forKey: Self.babyUUIDKey)
     }
 
     func acceptShare(metadata: CKShare.Metadata) async throws {

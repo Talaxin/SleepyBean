@@ -5,6 +5,8 @@ import UIKit
 final class InviteShareDelegate: NSObject, UICloudSharingControllerDelegate {
     static let shared = InviteShareDelegate()
 
+    var onShareChanged: (() -> Void)?
+
     func present(share: CKShare, container: CKContainer) {
         DispatchQueue.main.async {
             guard let presenter = Self.topViewController() else { return }
@@ -24,6 +26,19 @@ final class InviteShareDelegate: NSObject, UICloudSharingControllerDelegate {
 
     func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
         print("Cloud sharing save failed: \(error.localizedDescription)")
+    }
+
+    func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
+        if let share = csc.share {
+            CloudKitSharingCoordinator.shared.cacheParticipantNames(from: share)
+        }
+        onShareChanged?()
+    }
+
+    func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
+        UserDefaults.standard.set(false, forKey: CloudKitSharingCoordinator.hasShareKey)
+        UserDefaults.standard.removeObject(forKey: CloudKitSharingCoordinator.sharedWithNameKey)
+        onShareChanged?()
     }
 
     func itemTitle(for csc: UICloudSharingController) -> String? {
@@ -52,35 +67,73 @@ struct ShareBabyButton: View {
     @Environment(\.modelContext) private var modelContext
 
     @AppStorage("partner.hasShare") private var hasPartnerShare = false
+    @AppStorage("partner.sharedWithName") private var sharedWithName = ""
     @State private var isPreparing = false
+    @State private var isStopping = false
     @State private var errorMessage: String?
+    @State private var showStopConfirm = false
 
     private let sharingCoordinator = CloudKitSharingCoordinator.shared
 
+    private var displaySharedName: String {
+        let trimmed = sharedWithName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "parent" : trimmed
+    }
+
+    private var isShared: Bool {
+        hasPartnerShare || sharingCoordinator.isShared(baby, modelContext: modelContext)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if hasPartnerShare || sharingCoordinator.isShared(baby, modelContext: modelContext) {
-                Label("Shared with another parent", systemImage: "person.2.fill")
-                    .foregroundStyle(AppTheme.sleepPurple)
-            }
-
-            Button {
-                prepareShare()
-            } label: {
-                if isPreparing {
-                    HStack {
-                        ProgressView()
-                        Text("Preparing invite…")
-                    }
-                } else {
-                    Label("Invite Parent", systemImage: "person.badge.plus")
+            if isShared {
+                Button {
+                    showStopConfirm = true
+                } label: {
+                    Label("Shared with \(displaySharedName)", systemImage: "person.2.fill")
+                        .foregroundStyle(AppTheme.sleepPurple)
                 }
+                .buttonStyle(.plain)
+                .disabled(isStopping)
             }
-            .disabled(isPreparing)
 
-            Text("Sends a Messages or Mail invite. The other parent needs SleepyBean installed and signed in to iCloud.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if !isShared {
+                Button {
+                    prepareShare()
+                } label: {
+                    if isPreparing {
+                        HStack {
+                            ProgressView()
+                            Text("Preparing invite…")
+                        }
+                    } else {
+                        Label("Invite Parent", systemImage: "person.badge.plus")
+                    }
+                }
+                .disabled(isPreparing)
+
+                Text("Sends a Messages or Mail invite. The other parent needs SleepyBean installed and signed in to iCloud.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Tap to stop sharing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onAppear {
+            InviteShareDelegate.shared.onShareChanged = {
+                Task { await refreshSharedName() }
+            }
+            Task { await refreshSharedName() }
+        }
+        .alert("Stop sharing?", isPresented: $showStopConfirm) {
+            Button("Stop Sharing", role: .destructive) {
+                stopSharing()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\(displaySharedName) will no longer be able to see or edit \(baby.name)’s logs.")
         }
         .alert("Sharing", isPresented: Binding(
             get: { errorMessage != nil },
@@ -92,11 +145,20 @@ struct ShareBabyButton: View {
         }
     }
 
+    private func refreshSharedName() async {
+        if let name = await sharingCoordinator.sharedWithDisplayName(for: baby) {
+            sharedWithName = name
+            hasPartnerShare = true
+        }
+    }
+
     private func prepareShare() {
         isPreparing = true
         Task {
             do {
                 let preparedShare = try await sharingCoordinator.prepareShare(for: baby, modelContext: modelContext)
+                sharingCoordinator.cacheParticipantNames(from: preparedShare)
+                await refreshSharedName()
                 InviteShareDelegate.shared.present(
                     share: preparedShare,
                     container: sharingCoordinator.ckContainer
@@ -105,6 +167,20 @@ struct ShareBabyButton: View {
                 errorMessage = error.localizedDescription
             }
             isPreparing = false
+        }
+    }
+
+    private func stopSharing() {
+        isStopping = true
+        Task {
+            do {
+                try await sharingCoordinator.stopSharing(for: baby)
+                hasPartnerShare = false
+                sharedWithName = ""
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isStopping = false
         }
     }
 }

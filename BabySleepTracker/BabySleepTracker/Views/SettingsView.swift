@@ -218,7 +218,7 @@ struct SettingsView: View {
                 isPresented: $showExportPicker,
                 document: exportDocument,
                 contentType: .json,
-                defaultFilename: "SleepyBeanBackup"
+                defaultFilename: "SleepyBeanBackup.json"
             ) { result in
                 switch result {
                 case .success:
@@ -301,10 +301,11 @@ struct SettingsView: View {
         isWorking = true
         Task {
             do {
+                let summary = try backupService.summaryOfCurrentBackupData(context: modelContext)
                 try await backupService.saveToiCloud(context: modelContext)
                 hasRemoteBackup = true
-                let summary = try backupService.lastBackupSummary(context: modelContext)
-                statusMessage = "Backup saved to iCloud (\(summary))."
+                let stored = await backupService.summaryOfStoredBackup() ?? summary
+                statusMessage = "Backup saved to iCloud (\(stored))."
             } catch {
                 statusMessage = error.localizedDescription
             }
@@ -316,11 +317,13 @@ struct SettingsView: View {
         isWorking = true
         Task {
             do {
-                try await backupService.restoreFromiCloud(context: modelContext)
-                await TrackingLiveActivityManager.sync(for: baby)
+                let babyID = try await backupService.restoreFromiCloud(context: modelContext)
                 let babies = try modelContext.fetch(FetchDescriptor<BabyProfile>())
                 let sessions = try modelContext.fetch(FetchDescriptor<SleepSession>())
                 let feeds = try modelContext.fetch(FetchDescriptor<FeedEntry>())
+                if let restored = babies.first(where: { $0.id == babyID }) ?? babies.first {
+                    await TrackingLiveActivityManager.sync(for: restored)
+                }
                 statusMessage = "Restore complete (\(sessions.count) sleep · \(feeds.count) feeds · \(babies.count) babies)."
             } catch {
                 statusMessage = error.localizedDescription
@@ -369,8 +372,11 @@ struct SettingsView: View {
         isWorking = true
         Task {
             do {
-                try backupService.restoreBackupData(data, context: modelContext)
-                await TrackingLiveActivityManager.sync(for: baby)
+                let babyID = try backupService.restoreBackupData(data, context: modelContext)
+                let babies = try modelContext.fetch(FetchDescriptor<BabyProfile>())
+                if let restored = babies.first(where: { $0.id == babyID }) ?? babies.first {
+                    await TrackingLiveActivityManager.sync(for: restored)
+                }
                 statusMessage = "Restore complete."
             } catch {
                 statusMessage = error.localizedDescription

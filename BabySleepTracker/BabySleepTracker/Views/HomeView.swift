@@ -18,26 +18,41 @@ struct HomeView: View {
     }
 
     private var activeNightSleep: SleepSession? {
-        baby.sleepSessions
+        allSessions
             .filter { $0.isActive && $0.type == .night }
             .min(by: { $0.startTime < $1.startTime })
     }
 
     private var activeAwake: SleepSession? {
-        baby.sleepSessions.first { $0.isActive && $0.type == .awake }
+        allSessions.first { $0.isActive && $0.type == .awake }
     }
 
     private var activeNap: SleepSession? {
-        baby.sleepSessions.first { $0.isActive && $0.type == .nap }
+        allSessions.first { $0.isActive && $0.type == .nap }
     }
 
     private var buttonSession: SleepSession? {
         trackingMode == .nighttime ? activeAwake : activeNap
     }
 
+    /// Prefer store fetch over relationship alone so restores show up immediately.
+    private var allSessions: [SleepSession] {
+        let babyID = baby.id
+        let fetched = (try? modelContext.fetch(FetchDescriptor<SleepSession>())) ?? []
+        let linked = fetched.filter { $0.baby?.id == babyID }
+        return linked.isEmpty ? baby.sleepSessions : linked
+    }
+
+    private var allFeeds: [FeedEntry] {
+        let babyID = baby.id
+        let fetched = (try? modelContext.fetch(FetchDescriptor<FeedEntry>())) ?? []
+        let linked = fetched.filter { $0.baby?.id == babyID }
+        return linked.isEmpty ? baby.feedEntries : linked
+    }
+
     private var todayFeeds: [FeedEntry] {
         let calendar = Calendar.current
-        return baby.feedEntries
+        return allFeeds
             .filter { calendar.isDate($0.timestamp, inSameDayAs: Date()) }
             .sorted { $0.timestamp > $1.timestamp }
     }
@@ -50,7 +65,7 @@ struct HomeView: View {
 
     private var todaySessions: [SleepSession] {
         let calendar = Calendar.current
-        return baby.sleepSessions
+        return allSessions
             .filter { session in
                 session.isActive || calendar.isDate(session.startTime, inSameDayAs: Date())
             }
@@ -58,7 +73,7 @@ struct HomeView: View {
     }
 
     private var lastCompletedSession: SleepSession? {
-        baby.sleepSessions
+        allSessions
             .filter { !$0.isActive && $0.type != .awake }
             .sorted { ($0.endTime ?? $0.startTime) > ($1.endTime ?? $1.startTime) }
             .first

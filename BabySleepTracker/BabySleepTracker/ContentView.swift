@@ -5,33 +5,56 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \BabyProfile.createdAt) private var babies: [BabyProfile]
-    @State private var selectedBaby: BabyProfile?
+    @State private var selectedBabyID: UUID?
     @State private var showOnboarding = false
+
+    private var selectedBaby: BabyProfile? {
+        if let selectedBabyID,
+           let match = babies.first(where: { $0.id == selectedBabyID }) {
+            return match
+        }
+        return babies.max(by: {
+            ($0.sleepSessions.count + $0.feedEntries.count) < ($1.sleepSessions.count + $1.feedEntries.count)
+        }) ?? babies.first
+    }
 
     var body: some View {
         Group {
-            if let baby = selectedBaby ?? babies.first {
+            if let baby = selectedBaby {
                 MainTabView(baby: baby, allBabies: babies)
+                    .id(baby.id)
             } else {
                 OnboardingView { name, birthDate in
                     let baby = BabyProfile(name: name, birthDate: birthDate)
                     modelContext.insert(baby)
-                    selectedBaby = baby
+                    selectedBabyID = baby.id
                 }
             }
         }
         .onAppear {
             if babies.isEmpty {
                 showOnboarding = true
-            } else {
-                selectedBaby = babies.first
+            } else if selectedBabyID == nil {
+                selectedBabyID = selectedBaby?.id
             }
             syncLiveActivities()
             Task {
                 BabyProfile.mergeDuplicates(in: modelContext, babies: babies)
-                selectedBaby = babies.first
+                if let selectedBabyID,
+                   babies.contains(where: { $0.id == selectedBabyID }) {
+                    // keep
+                } else {
+                    self.selectedBabyID = selectedBaby?.id
+                }
                 await CloudKitSharingCoordinator.shared.consumePendingShare(modelContext: modelContext)
             }
+        }
+        .onChange(of: babies.map(\.id)) { _, _ in
+            if let selectedBabyID,
+               babies.contains(where: { $0.id == selectedBabyID }) {
+                return
+            }
+            selectedBabyID = selectedBaby?.id
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -51,12 +74,21 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidReceiveShare)) { _ in
             Task {
                 await CloudKitSharingCoordinator.shared.pullPartnerData(into: modelContext)
+                selectedBabyID = selectedBaby?.id
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sleepyBeanDidRestoreBackup)) { note in
+            if let id = note.userInfo?["babyID"] as? UUID {
+                selectedBabyID = id
+            } else {
+                selectedBabyID = selectedBaby?.id
+            }
+            syncLiveActivities()
         }
     }
 
     private func syncLiveActivities() {
-        guard let baby = selectedBaby ?? babies.first else { return }
+        guard let baby = selectedBaby else { return }
         Task {
             await TrackingLiveActivityManager.sync(for: baby)
         }

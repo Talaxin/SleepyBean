@@ -3,11 +3,19 @@ import SwiftData
 
 struct HistoryView: View {
     @Bindable var baby: BabyProfile
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedDate = Date()
+
+    private var sessions: [SleepSession] {
+        let babyID = baby.id
+        let fetched = (try? modelContext.fetch(FetchDescriptor<SleepSession>())) ?? []
+        let linked = fetched.filter { $0.baby?.id == babyID }
+        return linked.isEmpty ? baby.sleepSessions : linked
+    }
 
     private var groupedSessions: [(date: Date, sessions: [SleepSession], stats: DaySleepStats)] {
         let calendar = Calendar.current
-        let completed = baby.sleepSessions.filter { !$0.isActive }
+        let completed = sessions.filter { !$0.isActive }
 
         let grouped = Dictionary(grouping: completed) { session in
             calendar.startOfDay(for: session.startTime)
@@ -20,7 +28,7 @@ struct HistoryView: View {
 
     private var selectedDaySessions: [SleepSession] {
         let calendar = Calendar.current
-        return baby.sleepSessions
+        return sessions
             .filter { calendar.isDate($0.startTime, inSameDayAs: selectedDate) && !$0.isActive }
             .sorted { $0.startTime < $1.startTime }
     }
@@ -33,10 +41,10 @@ struct HistoryView: View {
         let calendar = Calendar.current
         return (0..<7).reversed().map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: Date()))!
-            let sessions = baby.sleepSessions.filter {
+            let daySessions = sessions.filter {
                 calendar.isDate($0.startTime, inSameDayAs: date) && !$0.isActive
             }
-            let totalHours = sessions.compactMap(\.duration).reduce(0, +) / 3600
+            let totalHours = daySessions.compactMap(\.duration).reduce(0, +) / 3600
             return (date: date, hours: totalHours)
         }
     }

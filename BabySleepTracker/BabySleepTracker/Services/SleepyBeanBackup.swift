@@ -38,15 +38,42 @@ enum SleepyBeanBackupEncoder {
         let sessions = try context.fetch(FetchDescriptor<SleepSession>())
         let feeds = try context.fetch(FetchDescriptor<FeedEntry>())
 
-        let sessionsByBaby = Dictionary(grouping: sessions) { $0.baby?.id }
-        let feedsByBaby = Dictionary(grouping: feeds) { $0.baby?.id }
+        var sessionsByBaby: [UUID: [SleepSession]] = [:]
+        var orphanSessions: [SleepSession] = []
+        for session in sessions {
+            if let babyID = session.baby?.id {
+                sessionsByBaby[babyID, default: []].append(session)
+            } else {
+                orphanSessions.append(session)
+            }
+        }
+
+        var feedsByBaby: [UUID: [FeedEntry]] = [:]
+        var orphanFeeds: [FeedEntry] = []
+        for feed in feeds {
+            if let babyID = feed.baby?.id {
+                feedsByBaby[babyID, default: []].append(feed)
+            } else {
+                orphanFeeds.append(feed)
+            }
+        }
+
+        // Attach unlinked rows to the primary baby so they aren't dropped from backups.
+        if let primaryID = babies.first?.id {
+            if !orphanSessions.isEmpty {
+                sessionsByBaby[primaryID, default: []].append(contentsOf: orphanSessions)
+            }
+            if !orphanFeeds.isEmpty {
+                feedsByBaby[primaryID, default: []].append(contentsOf: orphanFeeds)
+            }
+        }
 
         return SleepyBeanBackupFile(
             version: 1,
             exportedAt: Date(),
             babies: babies.map { baby in
-                let babySessions = sessionsByBaby[baby.id] ?? baby.sleepSessions
-                let babyFeeds = feedsByBaby[baby.id] ?? baby.feedEntries
+                let babySessions = sessionsByBaby[baby.id] ?? []
+                let babyFeeds = feedsByBaby[baby.id] ?? []
 
                 return BabyBackup(
                     id: baby.id,
@@ -76,86 +103,126 @@ enum SleepyBeanBackupEncoder {
         )
     }
 
-    /// Legacy helper kept for callers that already have baby objects loaded.
-    static func makeBackup(from babies: [BabyProfile]) -> SleepyBeanBackupFile {
-        SleepyBeanBackupFile(
-            version: 1,
-            exportedAt: Date(),
-            babies: babies.map { baby in
-                BabyBackup(
-                    id: baby.id,
-                    name: baby.name,
-                    birthDate: baby.birthDate,
-                    createdAt: baby.createdAt,
-                    sleepSessions: baby.sleepSessions.map { session in
-                        SleepSessionBackup(
-                            id: session.id,
-                            startTime: session.startTime,
-                            endTime: session.endTime,
-                            sleepType: session.sleepType,
-                            notes: session.notes,
-                            pausedAt: session.pausedAt,
-                            pauseAccumulated: session.pauseAccumulated
-                        )
-                    },
-                    feedEntries: baby.feedEntries.map { entry in
-                        FeedEntryBackup(
-                            id: entry.id,
-                            timestamp: entry.timestamp,
-                            side: entry.side
-                        )
-                    }
-                )
-            }
-        )
-    }
-
-    static func restore(_ backup: SleepyBeanBackupFile, into context: ModelContext) throws {
-        let existingSessions = try context.fetch(FetchDescriptor<SleepSession>())
-        for session in existingSessions {
-            context.delete(session)
-        }
-        let existingFeeds = try context.fetch(FetchDescriptor<FeedEntry>())
-        for feed in existingFeeds {
-            context.delete(feed)
-        }
+    /// Upsert restore — avoids CloudKit delete/recreate tombstone races that wipe newly restored rows.
+    @discardableResult
+    static func restore(_ backup: SleepyBeanBackupFile, into context: ModelContext) throws -> UUID? {
         let existingBabies = try context.fetch(FetchDescriptor<BabyProfile>())
-        for baby in existingBabies {
-            context.delete(baby)
-        }
-        try context.save()
+        let existingSessions = try context.fetch(FetchDescriptor<SleepSession>())
+        let existingFeeds = try context.fetch(FetchDescriptor<FeedEntry>())
+
+        var babiesByID = Dictionary(uniqueKeysWithValues: existingBabies.map { ($0.id, $0) })
+        var sessionsByID = Dictionary(uniqueKeysWithValues: existingSessions.map { ($0.id, $0) })
+        var feedsByID = Dictionary(uniqueKeysWithValues: existingFeeds.map { ($0.id, $0) })
+
+        var restoredSessionIDs = Set<UUID>()
+        var restoredFeedIDs = Set<UUID>()
+        var restoredBabyIDs = Set<UUID>()
+        var preferredBabyID: UUID?
+        var preferredLogCount = -1
 
         for babyBackup in backup.babies {
-            let baby = BabyProfile(name: babyBackup.name, birthDate: babyBackup.birthDate)
-            baby.id = babyBackup.id
+            let baby: BabyProfile
+            if let existing = babiesByID[babyBackup.id] {
+                baby = existing
+            } else if let existing = existingBabies.first(where: {
+                $0.name.caseInsensitiveCompare(babyBackup.name) == .orderedSame
+                    && Calendar.current.isDate($0.birthDate, inSameDayAs: babyBackup.birthDate)
+            }) {
+                baby = existing
+                babiesByID[baby.id] = baby
+            } else {
+                baby = BabyProfile(name: babyBackup.name, birthDate: babyBackup.birthDate)
+                baby.id = babyBackup.id
+                context.insert(baby)
+                babiesByID[baby.id] = baby
+            }
+
+            baby.name = babyBackup.name
+            baby.birthDate = babyBackup.birthDate
             baby.createdAt = babyBackup.createdAt
-            context.insert(baby)
+            restoredBabyIDs.insert(baby.id)
 
             for sessionBackup in babyBackup.sleepSessions {
-                let session = SleepSession(
-                    startTime: sessionBackup.startTime,
-                    endTime: sessionBackup.endTime,
-                    sleepType: SleepType(rawValue: sessionBackup.sleepType) ?? .nap,
-                    notes: sessionBackup.notes
-                )
-                session.id = sessionBackup.id
+                let session: SleepSession
+                if let existing = sessionsByID[sessionBackup.id] {
+                    session = existing
+                } else {
+                    session = SleepSession(
+                        startTime: sessionBackup.startTime,
+                        endTime: sessionBackup.endTime,
+                        sleepType: SleepType(rawValue: sessionBackup.sleepType) ?? .nap,
+                        notes: sessionBackup.notes
+                    )
+                    session.id = sessionBackup.id
+                    context.insert(session)
+                    sessionsByID[session.id] = session
+                }
+
+                session.startTime = sessionBackup.startTime
+                session.endTime = sessionBackup.endTime
+                session.sleepType = sessionBackup.sleepType
+                session.notes = sessionBackup.notes
                 session.pausedAt = sessionBackup.pausedAt
                 session.pauseAccumulated = sessionBackup.pauseAccumulated ?? 0
                 session.baby = baby
-                context.insert(session)
-                baby.sleepSessions.append(session)
+                if !baby.sleepSessions.contains(where: { $0.id == session.id }) {
+                    baby.sleepSessions.append(session)
+                }
+                restoredSessionIDs.insert(session.id)
             }
 
             for feedBackup in babyBackup.feedEntries {
-                let entry = FeedEntry(timestamp: feedBackup.timestamp, side: FeedSide(rawValue: feedBackup.side) ?? .left)
-                entry.id = feedBackup.id
+                let entry: FeedEntry
+                if let existing = feedsByID[feedBackup.id] {
+                    entry = existing
+                } else {
+                    entry = FeedEntry(
+                        timestamp: feedBackup.timestamp,
+                        side: FeedSide(rawValue: feedBackup.side) ?? .left
+                    )
+                    entry.id = feedBackup.id
+                    context.insert(entry)
+                    feedsByID[entry.id] = entry
+                }
+
+                entry.timestamp = feedBackup.timestamp
+                entry.side = feedBackup.side
                 entry.baby = baby
-                context.insert(entry)
-                baby.feedEntries.append(entry)
+                if !baby.feedEntries.contains(where: { $0.id == entry.id }) {
+                    baby.feedEntries.append(entry)
+                }
+                restoredFeedIDs.insert(entry.id)
+            }
+
+            let logCount = babyBackup.sleepSessions.count + babyBackup.feedEntries.count
+            if logCount > preferredLogCount {
+                preferredLogCount = logCount
+                preferredBabyID = baby.id
+            }
+        }
+
+        let summary = SleepyBeanBackupEncoder.summary(of: backup)
+        if summary.sessions > 0 || summary.feeds > 0 {
+            for session in existingSessions where !restoredSessionIDs.contains(session.id) {
+                context.delete(session)
+            }
+            for feed in existingFeeds where !restoredFeedIDs.contains(feed.id) {
+                context.delete(feed)
+            }
+        }
+
+        for baby in existingBabies where !restoredBabyIDs.contains(baby.id) {
+            let stillNeeded = backup.babies.contains {
+                $0.name.caseInsensitiveCompare(baby.name) == .orderedSame
+                    && Calendar.current.isDate($0.birthDate, inSameDayAs: baby.birthDate)
+            }
+            if !stillNeeded {
+                context.delete(baby)
             }
         }
 
         try context.save()
+        return preferredBabyID ?? restoredBabyIDs.first
     }
 
     static func summary(of backup: SleepyBeanBackupFile) -> (babies: Int, sessions: Int, feeds: Int) {
@@ -163,4 +230,8 @@ enum SleepyBeanBackupEncoder {
         let feeds = backup.babies.reduce(0) { $0 + $1.feedEntries.count }
         return (backup.babies.count, sessions, feeds)
     }
+}
+
+extension Notification.Name {
+    static let sleepyBeanDidRestoreBackup = Notification.Name("sleepyBeanDidRestoreBackup")
 }
