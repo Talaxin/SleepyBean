@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Bindable var baby: BabyProfile
@@ -13,9 +14,14 @@ struct SettingsView: View {
     @State private var editName: String = ""
     @State private var editBirthDate: Date = Date()
     @State private var showRestoreConfirm = false
+    @State private var showImportRestoreConfirm = false
     @State private var statusMessage: String?
     @State private var isWorking = false
-    @State private var iCloudSignedIn = iCloudBackupService.shared.isSignedInToiCloud
+    @State private var iCloudStatus = iCloudBackupService.shared.accountStatus
+    @State private var showExportPicker = false
+    @State private var showImportPicker = false
+    @State private var exportDocument = BackupJSONDocument()
+    @State private var pendingImportData: Data?
 
     private let backupService = iCloudBackupService.shared
 
@@ -106,48 +112,79 @@ struct SettingsView: View {
                 Section("iCloud Backup") {
                     Toggle("Enable iCloud backup", isOn: $iCloudBackupEnabled)
 
-                    LabeledContent("iCloud account") {
-                        Text(iCloudSignedIn ? "Signed in" : "Not signed in")
-                            .foregroundStyle(iCloudSignedIn ? .green : .orange)
+                    LabeledContent("iCloud status") {
+                        Text(iCloudStatus.label)
+                            .foregroundStyle(iCloudStatus.isPositive ? .green : .orange)
                     }
 
-                    if iCloudBackupEnabled && !iCloudSignedIn {
-                        Text("Sign in to iCloud and turn on iCloud Drive to back up your data.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if iCloudBackupEnabled {
+                        switch iCloudStatus {
+                        case .notSignedIn:
+                            Text("Sign in to iCloud and turn on iCloud Drive.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
 
-                        Button("Sign in to iCloud") {
-                            SystemSettings.openiCloudSettings()
-                        }
+                            Button("Sign in to iCloud") {
+                                SystemSettings.openiCloudSettings()
+                            }
 
-                        Button("Open SleepyBean in Settings") {
-                            SystemSettings.openAppSettings()
+                        case .signedInNoContainer:
+                            Text("You are signed in, but this install cannot access iCloud Drive. Use Export to Files below and choose iCloud Drive, or re-sign in Feather with iCloud enabled.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Button("Open iCloud Settings") {
+                                SystemSettings.openiCloudSettings()
+                            }
+
+                        case .ready:
+                            if let lastBackupDate = backupService.lastBackupDate {
+                                LabeledContent("Last iCloud backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
+                            }
+
+                            Button {
+                                performCloudBackup()
+                            } label: {
+                                Label("Back Up to iCloud", systemImage: "icloud.and.arrow.up")
+                            }
+                            .disabled(isWorking)
+
+                            Button {
+                                showRestoreConfirm = true
+                            } label: {
+                                Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                            }
+                            .disabled(isWorking)
+
+                            Text("SleepyBean also backs up automatically when you leave the app.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
+                }
 
-                    if iCloudBackupEnabled && iCloudSignedIn {
-                        if let lastBackupDate = backupService.lastBackupDate {
-                            LabeledContent("Last backup", value: lastBackupDate.formatted(date: .abbreviated, time: .shortened))
-                        }
-
-                        Button {
-                            performBackup()
-                        } label: {
-                            Label("Back Up Now", systemImage: "icloud.and.arrow.up")
-                        }
-                        .disabled(isWorking)
-
-                        Button {
-                            showRestoreConfirm = true
-                        } label: {
-                            Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
-                        }
-                        .disabled(isWorking)
-
-                        Text("SleepyBean also backs up automatically when you leave the app.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Section("Files Backup") {
+                    if let lastLocalBackupDate = backupService.lastLocalBackupDate {
+                        LabeledContent("Last local backup", value: lastLocalBackupDate.formatted(date: .abbreviated, time: .shortened))
                     }
+
+                    Button {
+                        prepareExport()
+                    } label: {
+                        Label("Export to Files", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(isWorking)
+
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("Import from Files", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(isWorking)
+
+                    Text("Save a backup to iCloud Drive, On My iPhone, or another device. Works even when automatic iCloud backup is unavailable.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("About") {
@@ -156,7 +193,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Data stays on your device unless you turn on iCloud backup above.")
+                    Text("Data stays on your device. Turn on iCloud backup or export to Files to keep a copy elsewhere.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -177,17 +214,25 @@ struct SettingsView: View {
             }
             .alert("Restore from iCloud?", isPresented: $showRestoreConfirm) {
                 Button("Restore", role: .destructive) {
-                    performRestore()
+                    performCloudRestore()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This replaces all sleep and feeding data on this device with your latest iCloud backup.")
             }
-            .alert("iCloud", isPresented: Binding(
+            .alert("Import backup?", isPresented: $showImportRestoreConfirm) {
+                Button("Import", role: .destructive) {
+                    performImportRestore()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This replaces all sleep and feeding data on this device with the imported backup file.")
+            }
+            .alert("Backup", isPresented: Binding(
                 get: { statusMessage != nil },
                 set: { if !$0 { statusMessage = nil } }
             )) {
-                if statusMessage?.contains("Sign in") == true || statusMessage?.contains("not available") == true {
+                if shouldOfferiCloudSettings {
                     Button("Open iCloud Settings") {
                         SystemSettings.openiCloudSettings()
                     }
@@ -195,6 +240,22 @@ struct SettingsView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(statusMessage ?? "")
+            }
+            .fileExporter(
+                isPresented: $showExportPicker,
+                document: exportDocument,
+                contentType: .json,
+                defaultFilename: "SleepyBeanBackup"
+            ) { result in
+                if case .success = result {
+                    statusMessage = "Backup exported. You can save it to iCloud Drive in Files."
+                }
+            }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [.json]
+            ) { result in
+                handleImportSelection(result)
             }
             .sheet(isPresented: $showAddBaby) {
                 AddBabySheet { name, birthDate in
@@ -205,8 +266,13 @@ struct SettingsView: View {
         }
     }
 
+    private var shouldOfferiCloudSettings: Bool {
+        guard let statusMessage else { return false }
+        return statusMessage.localizedCaseInsensitiveContains("icloud")
+    }
+
     private func refreshiCloudStatus() {
-        iCloudSignedIn = backupService.isSignedInToiCloud
+        iCloudStatus = backupService.accountStatus
     }
 
     private func handleLiveActivityToggle(_ enabled: Bool) {
@@ -219,14 +285,59 @@ struct SettingsView: View {
         }
     }
 
-    private func performBackup() {
-        guard iCloudBackupEnabled else {
-            statusMessage = "Turn on iCloud backup in Settings first."
-            return
+    private func prepareExport() {
+        isWorking = true
+        do {
+            let data = try backupService.makeBackupData(context: modelContext)
+            exportDocument = BackupJSONDocument(data: data)
+            try backupService.saveLocalBackup(context: modelContext)
+            showExportPicker = true
+        } catch {
+            statusMessage = error.localizedDescription
         }
+        isWorking = false
+    }
 
-        guard iCloudSignedIn else {
-            statusMessage = "Sign in to iCloud in Settings, then try again."
+    private func handleImportSelection(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            guard url.startAccessingSecurityScopedResource() else {
+                statusMessage = "Could not access the selected file."
+                return
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            do {
+                pendingImportData = try Data(contentsOf: url)
+                showImportRestoreConfirm = true
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+
+        case .failure(let error):
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func performImportRestore() {
+        guard let pendingImportData else { return }
+        isWorking = true
+        Task {
+            do {
+                try backupService.restoreBackupData(pendingImportData, context: modelContext)
+                await TrackingLiveActivityManager.sync(for: baby)
+                statusMessage = "Import complete."
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+            pendingImportData = nil
+            isWorking = false
+        }
+    }
+
+    private func performCloudBackup() {
+        guard iCloudBackupEnabled else {
+            statusMessage = "Turn on iCloud backup first."
             return
         }
 
@@ -234,6 +345,7 @@ struct SettingsView: View {
         Task {
             do {
                 try await backupService.backup(context: modelContext)
+                refreshiCloudStatus()
                 statusMessage = "Backup saved to iCloud."
             } catch {
                 statusMessage = error.localizedDescription
@@ -242,14 +354,9 @@ struct SettingsView: View {
         }
     }
 
-    private func performRestore() {
+    private func performCloudRestore() {
         guard iCloudBackupEnabled else {
-            statusMessage = "Turn on iCloud backup in Settings first."
-            return
-        }
-
-        guard iCloudSignedIn else {
-            statusMessage = "Sign in to iCloud in Settings, then try again."
+            statusMessage = "Turn on iCloud backup first."
             return
         }
 
