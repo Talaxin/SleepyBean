@@ -52,8 +52,19 @@ if [[ "$LIVE_ACTIVITIES" != "true" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$APP_PATH/AppIcon60x60@2x.png" && ! -f "$APP_PATH/Assets.car" ]]; then
+if [[ ! -f "$APP_PATH/AppIcon60x60@2x.png" && ! -f "$APP_PATH/AppIcon60x60@3x.png" && ! -f "$APP_PATH/Assets.car" ]]; then
   echo "ERROR: App icon assets missing from IPA" >&2
+  exit 1
+fi
+
+if [[ "$DISPLAY_NAME" != "SleepyBean" ]]; then
+  echo "ERROR: CFBundleDisplayName must be SleepyBean (got: $DISPLAY_NAME)" >&2
+  exit 1
+fi
+
+BUNDLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Info.plist" 2>/dev/null || true)"
+if [[ "$BUNDLE_NAME" != "SleepyBean" ]]; then
+  echo "ERROR: CFBundleName must be SleepyBean (got: $BUNDLE_NAME)" >&2
   exit 1
 fi
 

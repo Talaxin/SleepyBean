@@ -36,12 +36,23 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   AD_HOC_CODE_SIGNING_ALLOWED=NO
 
-APP_PATH="$(find "$DERIVED_DATA" -path "*/Build/Products/Release-iphoneos/BabySleepTracker.app" -type d | head -n 1)"
+APP_PATH="$(find "$DERIVED_DATA" -path "*/Build/Products/Release-iphoneos/SleepyBean.app" -type d | head -n 1)"
+if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
+  APP_PATH="$(find "$DERIVED_DATA" -path "*/Build/Products/Release-iphoneos/BabySleepTracker.app" -type d | head -n 1)"
+fi
 
 if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
   echo "ERROR: Could not find built .app bundle" >&2
   find "$DERIVED_DATA" -name "*.app" -type d || true
   exit 1
+fi
+
+ICON_SRC="$REPO_ROOT/feather/icon.png"
+if [[ -f "$ICON_SRC" ]]; then
+  echo "==> Embedding Spotlight-compatible icon PNGs"
+  sips -z 120 120 "$ICON_SRC" --out "$APP_PATH/AppIcon60x60@2x.png" >/dev/null
+  sips -z 180 180 "$ICON_SRC" --out "$APP_PATH/AppIcon60x60@3x.png" >/dev/null
+  sips -z 152 152 "$ICON_SRC" --out "$APP_PATH/AppIcon76x76@2x~ipad.png" >/dev/null
 fi
 
 echo "==> Built app metadata:"
@@ -51,9 +62,9 @@ echo "==> Built app metadata:"
 
 echo "==> Packaging IPA from: $APP_PATH"
 mkdir -p "$OUTPUT_DIR/Payload"
-ditto "$APP_PATH" "$OUTPUT_DIR/Payload/BabySleepTracker.app"
+ditto "$APP_PATH" "$OUTPUT_DIR/Payload/SleepyBean.app"
 
-WIDGET_PLIST="$OUTPUT_DIR/Payload/BabySleepTracker.app/PlugIns/SleepyBeanWidgets.appex/Info.plist"
+WIDGET_PLIST="$OUTPUT_DIR/Payload/SleepyBean.app/PlugIns/SleepyBeanWidgets.appex/Info.plist"
 if [[ -f "$WIDGET_PLIST" ]]; then
   if ! /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$WIDGET_PLIST" >/dev/null 2>&1; then
     echo "==> Patching widget Info.plist with NSExtension metadata"
