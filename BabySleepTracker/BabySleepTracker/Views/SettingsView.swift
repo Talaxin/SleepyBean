@@ -46,6 +46,12 @@ struct SettingsView: View {
                     LabeledContent("Age", value: baby.ageDescription)
                 }
 
+                if SleepyBeanModelContainer.isCloudKitEnabled {
+                    Section("Family Sharing") {
+                        ShareBabyButton(baby: baby)
+                    }
+                }
+
                 Section("Wake Windows") {
                     let guidance = WakeWindowCalculator.guidance(forAgeInMonths: baby.ageInMonths)
                     LabeledContent("Current window", value: guidance.rangeDescription)
@@ -98,7 +104,18 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("iCloud Backup") {
+                if SleepyBeanModelContainer.isCloudKitEnabled {
+                    Section("iCloud Sync") {
+                        Label("Syncing across your devices", systemImage: "icloud.fill")
+                            .foregroundStyle(AppTheme.sleepPurple)
+
+                        Text("Sleep and feeding data syncs automatically when you are signed in to iCloud. Use Family Sharing above to invite your partner.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section(SleepyBeanModelContainer.isCloudKitEnabled ? "Manual Backup" : "iCloud Backup") {
                     Toggle("Enable backup", isOn: $iCloudBackupEnabled)
 
                     if iCloudBackupEnabled {
@@ -120,9 +137,13 @@ struct SettingsView: View {
                         }
                         .disabled(isWorking)
 
-                        Text("Tap Save, then choose iCloud Drive in Files. SleepyBean also saves a backup automatically when you leave the app.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            SleepyBeanModelContainer.isCloudKitEnabled
+                                ? "Optional JSON export for moving data between accounts or sideload installs."
+                                : "Tap Save, then choose iCloud Drive in Files. SleepyBean also saves a backup automatically when you leave the app."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
 
@@ -132,9 +153,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Data stays on your device. Turn on backup to keep a copy in iCloud Drive.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        SleepyBeanModelContainer.isCloudKitEnabled
+                            ? "iCloud sync keeps data up to date on your devices. Partner sharing lets both of you edit the same baby."
+                            : "Data stays on your device. Turn on backup to keep a copy in iCloud Drive."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Settings")

@@ -31,6 +31,11 @@
 		A1000001000000000000001A /* iCloudBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* iCloudBackupService.swift */; };
 		A1000001000000000000001B /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001B /* AppPreferences.swift */; };
 		A1000001000000000000001C /* SystemSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001C /* SystemSettings.swift */; };
+		A1000001000000000000001D /* CloudKitConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001D /* CloudKitConfiguration.swift */; };
+		A1000001000000000000001E /* SleepyBeanModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001E /* SleepyBeanModelContainer.swift */; };
+		A1000001000000000000001F /* CloudKitSharingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001F /* CloudKitSharingCoordinator.swift */; };
+		A10000010000000000000020 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* AppDelegate.swift */; };
+		A10000010000000000000021 /* ShareBabyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* ShareBabyView.swift */; };
 		A10000010000000000000015 /* TrackingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* TrackingActivityAttributes.swift */; };
 		A10000010000000000000016 /* SleepyBeanWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* SleepyBeanWidgetsBundle.swift */; };
 		A10000010000000000000017 /* TrackingLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* TrackingLiveActivityWidget.swift */; };
@@ -66,6 +71,11 @@
 		A2000001000000000000001A /* BabySleepTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BabySleepTracker.entitlements; sourceTree = "<group>"; };
 		A2000001000000000000001B /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		A2000001000000000000001C /* SystemSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSettings.swift; sourceTree = "<group>"; };
+		A2000001000000000000001D /* CloudKitConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitConfiguration.swift; sourceTree = "<group>"; };
+		A2000001000000000000001E /* SleepyBeanModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyBeanModelContainer.swift; sourceTree = "<group>"; };
+		A2000001000000000000001F /* CloudKitSharingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitSharingCoordinator.swift; sourceTree = "<group>"; };
+		A20000010000000000000020 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000010000000000000021 /* ShareBabyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareBabyView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* BabySleepTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BabySleepTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000010000000000000002 /* SleepyBeanWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SleepyBeanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -112,6 +122,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000010000000000000001 /* BabySleepTrackerApp.swift */,
+				A20000010000000000000020 /* AppDelegate.swift */,
 				A20000010000000000000002 /* ContentView.swift */,
 				A2000001000000000000001A /* BabySleepTracker.entitlements */,
 				A50000010000000000000004 /* Models */,
@@ -169,6 +180,9 @@
 				A20000010000000000000019 /* iCloudBackupService.swift */,
 				A2000001000000000000001B /* AppPreferences.swift */,
 				A2000001000000000000001C /* SystemSettings.swift */,
+				A2000001000000000000001D /* CloudKitConfiguration.swift */,
+				A2000001000000000000001E /* SleepyBeanModelContainer.swift */,
+				A2000001000000000000001F /* CloudKitSharingCoordinator.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -185,6 +199,7 @@
 				A2000001000000000000000D /* AddSleepView.swift */,
 				A2000001000000000000000E /* HistoryView.swift */,
 				A2000001000000000000000F /* SettingsView.swift */,
+				A20000010000000000000021 /* ShareBabyView.swift */,
 				A20000010000000000000014 /* FeedingCard.swift */,
 			);
 			path = Views;
@@ -326,6 +341,11 @@
 				A1000001000000000000001A /* iCloudBackupService.swift in Sources */,
 				A1000001000000000000001B /* AppPreferences.swift in Sources */,
 				A1000001000000000000001C /* SystemSettings.swift in Sources */,
+				A1000001000000000000001D /* CloudKitConfiguration.swift in Sources */,
+				A1000001000000000000001E /* SleepyBeanModelContainer.swift in Sources */,
+				A1000001000000000000001F /* CloudKitSharingCoordinator.swift in Sources */,
+				A10000010000000000000020 /* AppDelegate.swift in Sources */,
+				A10000010000000000000021 /* ShareBabyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -473,9 +493,11 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBean;
+				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -506,9 +528,11 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SleepyBean;
+				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
