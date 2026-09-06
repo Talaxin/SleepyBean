@@ -16,6 +16,15 @@
       "category": "lifestyle",
       "versions": [
         {
+          "version": "1.2.16",
+          "buildVersion": "16",
+          "date": "2026-09-06T03:20:03Z",
+          "localizedDescription": "SleepyBean 1.2.16 \u2014 feeding, day/night modes, wake windows.",
+          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.16/SleepyBean.ipa",
+          "size": 2528650,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.2.15",
           "buildVersion": "15",
           "date": "2026-09-06T02:36:08Z",
@@ -50,29 +59,16 @@
           "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.11/SleepyBean.ipa",
           "size": 2463828,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.2.10",
-          "buildVersion": "10",
-          "date": "2026-09-05T23:21:19Z",
-          "localizedDescription": "SleepyBean 1.2.10 \u2014 feeding, day/night modes, wake windows.",
-          "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.10/SleepyBean.ipa",
-          "size": 2419971,
-          "minOSVersion": "17.0"
         }
       ],
       "appPermissions": {
-        "entitlements": [
-          "com.apple.developer.icloud-container-identifiers",
-          "com.apple.developer.icloud-services",
-          "com.apple.developer.ubiquity-container-identifiers"
-        ],
+        "entitlements": [],
         "privacy": {}
       },
-      "version": "1.2.15",
-      "versionDate": "2026-09-06T02:36:08Z",
-      "size": 2545312,
-      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.15/SleepyBean.ipa"
+      "version": "1.2.16",
+      "versionDate": "2026-09-06T03:20:03Z",
+      "size": 2528650,
+      "downloadURL": "https://github.com/Talaxin/SleepyBean/releases/download/v1.2.16/SleepyBean.ipa"
     }
   ],
   "news": [
